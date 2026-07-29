@@ -9,7 +9,7 @@
 		<relativePath/>
 	</parent>
 
-	<groupId>com.example</groupId>
+	<groupId>com.taskmanager</groupId>
 	<artifactId>task-manager</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>task-manager</name>
