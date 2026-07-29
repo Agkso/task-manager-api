@@ -10,6 +10,7 @@ import com.taskmanager.project.ProjetoService;
 import com.taskmanager.project.enums.Papel;
 import com.taskmanager.task.dto.RequisicaoAtualizarStatus;
 import com.taskmanager.task.dto.RequisicaoTarefa;
+import com.taskmanager.task.dto.RespostaRelatorio;
 import com.taskmanager.task.dto.RespostaTarefa;
 import com.taskmanager.task.enums.Prioridade;
 import com.taskmanager.task.enums.StatusTarefa;
@@ -17,7 +18,9 @@ import com.taskmanager.user.Usuario;
 import com.taskmanager.user.UsuarioRepository;
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -168,6 +171,27 @@ public class TarefaService {
                 tarefas.subList(inicio, fim).stream().map(RespostaTarefa::de).toList();
 
         return new PaginaResposta<>(conteudo, paginaSegura, totalPaginas, totalElementos);
+    }
+
+    @Transactional(readOnly = true)
+    public RespostaRelatorio gerarRelatorio(Long projetoId, Long solicitanteId) {
+        projetoService.obterMembro(projetoId, solicitanteId);
+
+        Map<StatusTarefa, Long> porStatus = new EnumMap<>(StatusTarefa.class);
+        for (StatusTarefa status : StatusTarefa.values()) {
+            porStatus.put(status, 0L);
+        }
+        tarefaRepository.contarPorStatus(projetoId).forEach(c -> porStatus.put(c.getStatus(), c.getTotal()));
+
+        Map<Prioridade, Long> porPrioridade = new EnumMap<>(Prioridade.class);
+        for (Prioridade prioridade : Prioridade.values()) {
+            porPrioridade.put(prioridade, 0L);
+        }
+        tarefaRepository
+                .contarPorPrioridade(projetoId)
+                .forEach(c -> porPrioridade.put(c.getPrioridade(), c.getTotal()));
+
+        return new RespostaRelatorio(porStatus, porPrioridade);
     }
 
     private Tarefa buscarEntidade(Long projetoId, Long tarefaId) {

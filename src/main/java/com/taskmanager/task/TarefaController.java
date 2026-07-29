@@ -4,6 +4,7 @@ import com.taskmanager.common.dto.PaginaResposta;
 import com.taskmanager.security.UsuarioAutenticado;
 import com.taskmanager.task.dto.RequisicaoAtualizarStatus;
 import com.taskmanager.task.dto.RequisicaoTarefa;
+import com.taskmanager.task.dto.RespostaRelatorio;
 import com.taskmanager.task.dto.RespostaTarefa;
 import com.taskmanager.task.enums.Prioridade;
 import com.taskmanager.task.enums.StatusTarefa;
@@ -71,6 +72,12 @@ public class TarefaController {
                 direcao,
                 pagina,
                 tamanho);
+    }
+
+    @GetMapping("/relatorio")
+    public RespostaRelatorio relatorio(
+            @PathVariable Long projetoId, @AuthenticationPrincipal UsuarioAutenticado principal) {
+        return tarefaService.gerarRelatorio(projetoId, principal.getUsuarioId());
     }
 
     @GetMapping("/{tarefaId}")
