@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import com.taskmanager.exception.RegraNegocioException;
 import com.taskmanager.project.MembroProjeto;
 import com.taskmanager.project.MembroProjetoRepository;
+import com.taskmanager.project.MembroProjetoService;
 import com.taskmanager.project.Projeto;
 import com.taskmanager.project.ProjetoService;
 import com.taskmanager.project.enums.Papel;
@@ -28,11 +29,19 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 
+/**
+ * RegrasTransicaoStatusTarefa entra como instancia real (nao mock): e uma
+ * regra pura, sem dependencia de repositorio, entao mockar so esconderia
+ * o comportamento que a gente quer garantir aqui.
+ */
 @ExtendWith(MockitoExtension.class)
 class TarefaServiceTest {
 
     @Mock
     private TarefaRepository tarefaRepository;
+
+    @Mock
+    private MembroProjetoService membroProjetoService;
 
     @Mock
     private ProjetoService projetoService;
@@ -52,7 +61,13 @@ class TarefaServiceTest {
 
     @BeforeEach
     void montarService() {
-        tarefaService = new TarefaService(tarefaRepository, projetoService, membroProjetoRepository, usuarioRepository);
+        tarefaService = new TarefaService(
+                tarefaRepository,
+                membroProjetoService,
+                projetoService,
+                membroProjetoRepository,
+                usuarioRepository,
+                new RegrasTransicaoStatusTarefa());
     }
 
     private Usuario usuario(Long id) {
@@ -80,7 +95,7 @@ class TarefaServiceTest {
 
     @Test
     void mudarStatus_deveRejeitarVoltaDeDoneParaTodo() {
-        when(projetoService.obterMembro(PROJETO_ID, SOLICITANTE_ID)).thenReturn(membro(Papel.ADMIN));
+        when(membroProjetoService.obterMembro(PROJETO_ID, SOLICITANTE_ID)).thenReturn(membro(Papel.ADMIN));
         when(tarefaRepository.findById(TAREFA_ID))
                 .thenReturn(Optional.of(tarefa(StatusTarefa.DONE, Prioridade.LOW, RESPONSAVEL_ID)));
 
@@ -94,7 +109,7 @@ class TarefaServiceTest {
 
     @Test
     void mudarStatus_deveBloquearFechamentoDeCriticaPorMembroComum() {
-        when(projetoService.obterMembro(PROJETO_ID, SOLICITANTE_ID)).thenReturn(membro(Papel.MEMBER));
+        when(membroProjetoService.obterMembro(PROJETO_ID, SOLICITANTE_ID)).thenReturn(membro(Papel.MEMBER));
         when(tarefaRepository.findById(TAREFA_ID))
                 .thenReturn(Optional.of(tarefa(StatusTarefa.IN_PROGRESS, Prioridade.CRITICAL, RESPONSAVEL_ID)));
 
@@ -107,7 +122,7 @@ class TarefaServiceTest {
 
     @Test
     void mudarStatus_devePermitirFechamentoDeCriticaPorAdmin() {
-        when(projetoService.obterMembro(PROJETO_ID, SOLICITANTE_ID)).thenReturn(membro(Papel.ADMIN));
+        when(membroProjetoService.obterMembro(PROJETO_ID, SOLICITANTE_ID)).thenReturn(membro(Papel.ADMIN));
         Tarefa critica = tarefa(StatusTarefa.IN_PROGRESS, Prioridade.CRITICAL, RESPONSAVEL_ID);
         when(tarefaRepository.findById(TAREFA_ID)).thenReturn(Optional.of(critica));
         when(tarefaRepository.save(any(Tarefa.class))).thenAnswer(chamada -> chamada.getArgument(0));
@@ -120,7 +135,7 @@ class TarefaServiceTest {
 
     @Test
     void mudarStatus_deveRejeitarQuandoResponsavelAtingiuLimiteDeWip() {
-        when(projetoService.obterMembro(PROJETO_ID, SOLICITANTE_ID)).thenReturn(membro(Papel.MEMBER));
+        when(membroProjetoService.obterMembro(PROJETO_ID, SOLICITANTE_ID)).thenReturn(membro(Papel.MEMBER));
         when(tarefaRepository.findById(TAREFA_ID))
                 .thenReturn(Optional.of(tarefa(StatusTarefa.TODO, Prioridade.MEDIUM, RESPONSAVEL_ID)));
         when(tarefaRepository.countByResponsavelIdAndStatus(RESPONSAVEL_ID, StatusTarefa.IN_PROGRESS))
@@ -136,7 +151,7 @@ class TarefaServiceTest {
 
     @Test
     void mudarStatus_devePermitirQuandoAbaixoDoLimiteDeWip() {
-        when(projetoService.obterMembro(PROJETO_ID, SOLICITANTE_ID)).thenReturn(membro(Papel.MEMBER));
+        when(membroProjetoService.obterMembro(PROJETO_ID, SOLICITANTE_ID)).thenReturn(membro(Papel.MEMBER));
         when(tarefaRepository.findById(TAREFA_ID))
                 .thenReturn(Optional.of(tarefa(StatusTarefa.TODO, Prioridade.MEDIUM, RESPONSAVEL_ID)));
         when(tarefaRepository.countByResponsavelIdAndStatus(RESPONSAVEL_ID, StatusTarefa.IN_PROGRESS))
@@ -151,7 +166,7 @@ class TarefaServiceTest {
 
     @Test
     void criar_deveRejeitarQuandoResponsavelNaoEhMembroDoProjeto() {
-        when(projetoService.obterMembro(PROJETO_ID, SOLICITANTE_ID)).thenReturn(membro(Papel.ADMIN));
+        when(membroProjetoService.obterMembro(PROJETO_ID, SOLICITANTE_ID)).thenReturn(membro(Papel.ADMIN));
         when(projetoService.buscarPorId(PROJETO_ID)).thenReturn(projeto());
         when(membroProjetoRepository.existsByProjetoIdAndUsuarioId(PROJETO_ID, RESPONSAVEL_ID))
                 .thenReturn(false);
