@@ -9,11 +9,14 @@ import com.taskmanager.task.dto.RespostaTarefa;
 import com.taskmanager.task.enums.Prioridade;
 import com.taskmanager.task.enums.StatusTarefa;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import java.time.LocalDateTime;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -25,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+@Validated
 @RestController
 @RequestMapping("/api/projetos/{projetoId}/tarefas")
 public class TarefaController {
@@ -56,8 +60,11 @@ public class TarefaController {
             @RequestParam(required = false) String busca,
             @RequestParam(defaultValue = "criadoEm") String ordenarPor,
             @RequestParam(defaultValue = "asc") String direcao,
-            @RequestParam(defaultValue = "0") int pagina,
-            @RequestParam(defaultValue = "20") int tamanho,
+            @RequestParam(defaultValue = "0") @Min(value = 0, message = "pagina nao pode ser negativa") int pagina,
+            @RequestParam(defaultValue = "20")
+                    @Min(value = 1, message = "tamanho deve ser no minimo 1")
+                    @Max(value = 100, message = "tamanho deve ser no maximo 100")
+                    int tamanho,
             @AuthenticationPrincipal UsuarioAutenticado principal) {
         return tarefaService.listar(
                 projetoId,
