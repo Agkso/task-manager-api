@@ -27,25 +27,27 @@ public class ProjetoController {
 
     private final ProjetoService projetoService;
     private final MembroProjetoService membroProjetoService;
+    private final ProjetoMapper projetoMapper;
+    private final MembroMapper membroMapper;
 
     @PostMapping
     public ResponseEntity<RespostaProjeto> criar(
             @Valid @RequestBody RequisicaoProjeto requisicao, @AuthenticationPrincipal UsuarioAutenticado principal) {
         Projeto projeto = projetoService.criar(requisicao, principal.getUsuario());
-        return ResponseEntity.status(HttpStatus.CREATED).body(RespostaProjeto.de(projeto));
+        return ResponseEntity.status(HttpStatus.CREATED).body(projetoMapper.paraResposta(projeto));
     }
 
     @GetMapping
     public List<RespostaProjeto> listar(@AuthenticationPrincipal UsuarioAutenticado principal) {
         return projetoService.listarDoUsuario(principal.getUsuarioId()).stream()
-                .map(RespostaProjeto::de)
+                .map(projetoMapper::paraResposta)
                 .toList();
     }
 
     @GetMapping("/{id}")
     public RespostaProjeto buscar(@PathVariable Long id, @AuthenticationPrincipal UsuarioAutenticado principal) {
         membroProjetoService.obterMembro(id, principal.getUsuarioId());
-        return RespostaProjeto.de(projetoService.buscarPorId(id));
+        return projetoMapper.paraResposta(projetoService.buscarPorId(id));
     }
 
     @PutMapping("/{id}")
@@ -53,7 +55,7 @@ public class ProjetoController {
             @PathVariable Long id,
             @Valid @RequestBody RequisicaoProjeto requisicao,
             @AuthenticationPrincipal UsuarioAutenticado principal) {
-        return RespostaProjeto.de(projetoService.atualizar(id, requisicao, principal.getUsuarioId()));
+        return projetoMapper.paraResposta(projetoService.atualizar(id, requisicao, principal.getUsuarioId()));
     }
 
     @DeleteMapping("/{id}")
@@ -66,7 +68,7 @@ public class ProjetoController {
     public List<RespostaMembro> listarMembros(
             @PathVariable Long id, @AuthenticationPrincipal UsuarioAutenticado principal) {
         return membroProjetoService.listar(id, principal.getUsuarioId()).stream()
-                .map(RespostaMembro::de)
+                .map(membroMapper::paraResposta)
                 .toList();
     }
 
@@ -76,7 +78,7 @@ public class ProjetoController {
             @Valid @RequestBody RequisicaoAdicionarMembro requisicao,
             @AuthenticationPrincipal UsuarioAutenticado principal) {
         var membro = membroProjetoService.adicionar(id, requisicao, principal.getUsuarioId());
-        return ResponseEntity.status(HttpStatus.CREATED).body(RespostaMembro.de(membro));
+        return ResponseEntity.status(HttpStatus.CREATED).body(membroMapper.paraResposta(membro));
     }
 
     @DeleteMapping("/{id}/membros/{usuarioId}")

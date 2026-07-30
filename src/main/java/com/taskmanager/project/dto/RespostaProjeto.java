@@ -1,8 +1,8 @@
 package com.taskmanager.project.dto;
 
-import com.taskmanager.project.Projeto;
 import java.time.LocalDateTime;
 
+/** Ver {@link com.taskmanager.project.ProjetoMapper} para a conversao a partir de {@code Projeto}. */
 public record RespostaProjeto(
         Long id,
         String nome,
@@ -10,16 +10,4 @@ public record RespostaProjeto(
         Long donoId,
         String donoNome,
         LocalDateTime criadoEm,
-        LocalDateTime atualizadoEm) {
-
-    public static RespostaProjeto de(Projeto projeto) {
-        return new RespostaProjeto(
-                projeto.getId(),
-                projeto.getNome(),
-                projeto.getDescricao(),
-                projeto.getDono().getId(),
-                projeto.getDono().getNome(),
-                projeto.getCriadoEm(),
-                projeto.getAtualizadoEm());
-    }
-}
+        LocalDateTime atualizadoEm) {}
