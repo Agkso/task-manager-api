@@ -1,5 +1,6 @@
 package com.taskmanager.project;
 
+import com.taskmanager.exception.MensagensErro;
 import com.taskmanager.exception.RecursoNaoEncontradoException;
 import com.taskmanager.project.dto.RequisicaoProjeto;
 import com.taskmanager.user.Usuario;
@@ -43,7 +44,7 @@ public class ProjetoService {
     public Projeto buscarPorId(Long projetoId) {
         return projetoRepository
                 .findById(projetoId)
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Projeto nao encontrado: " + projetoId));
+                .orElseThrow(() -> new RecursoNaoEncontradoException(MensagensErro.projetoNaoEncontrado(projetoId)));
     }
 
     @Transactional
@@ -59,7 +60,7 @@ public class ProjetoService {
     public void excluir(Long projetoId, Long solicitanteId) {
         Projeto projeto = buscarPorId(projetoId);
         if (!projeto.getDono().getId().equals(solicitanteId)) {
-            throw new AccessDeniedException("Apenas o dono do projeto pode exclui-lo");
+            throw new AccessDeniedException(MensagensErro.APENAS_DONO_PODE_EXCLUIR_PROJETO);
         }
         projetoRepository.delete(projeto);
         log.info("Projeto {} excluido por usuario {}", projetoId, solicitanteId);

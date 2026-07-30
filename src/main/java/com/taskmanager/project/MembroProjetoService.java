@@ -1,5 +1,6 @@
 package com.taskmanager.project;
 
+import com.taskmanager.exception.MensagensErro;
 import com.taskmanager.exception.RecursoNaoEncontradoException;
 import com.taskmanager.exception.RegraNegocioException;
 import com.taskmanager.project.dto.RequisicaoAdicionarMembro;
@@ -16,9 +17,10 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Responsavel exclusivamente por membership e autorizacao de projeto
  * (quem e membro, quem e ADMIN). Extraido do ProjetoService porque essa
- * checagem e usada tanto por operacoes de projeto quanto por TarefaService,
- * e misturar "CRUD de projeto" com "quem pode fazer o que" tornava o
- * ProjetoService uma classe com dois motivos de mudar.
+ * checagem e usada tanto por operacoes de projeto quanto pelos use cases
+ * de tarefa (com.taskmanager.task.usecase), e misturar "CRUD de projeto"
+ * com "quem pode fazer o que" tornava o ProjetoService uma classe com dois
+ * motivos de mudar.
  */
 @Slf4j
 @Service
@@ -32,18 +34,18 @@ public class MembroProjetoService {
     public MembroProjeto obterMembro(Long projetoId, Long usuarioId) {
         return membroProjetoRepository
                 .findByProjetoIdAndUsuarioId(projetoId, usuarioId)
-                .orElseThrow(() -> new AccessDeniedException("Voce nao e membro deste projeto"));
+                .orElseThrow(() -> new AccessDeniedException(MensagensErro.NAO_E_MEMBRO_DO_PROJETO));
     }
 
     public void exigirAdmin(Long projetoId, Long usuarioId) {
         MembroProjeto membro = obterMembro(projetoId, usuarioId);
         if (membro.getPapel() != Papel.ADMIN) {
-            throw new AccessDeniedException("Apenas o ADMIN do projeto pode realizar esta acao");
+            throw new AccessDeniedException(MensagensErro.APENAS_ADMIN_PODE_REALIZAR_ACAO);
         }
     }
 
     /**
-     * Usado por outros modulos (TarefaService, ao validar o responsavel de
+     * Usado por outros modulos (TarefaHelper, ao validar o responsavel de
      * uma tarefa) que precisam saber se um usuario e membro sem precisar de
      * autorizacao para a propria consulta nem acesso direto a
      * MembroProjetoRepository - mantem o repositorio como detalhe interno
@@ -64,15 +66,15 @@ public class MembroProjetoService {
 
         Projeto projeto = projetoRepository
                 .findById(projetoId)
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Projeto nao encontrado: " + projetoId));
+                .orElseThrow(() -> new RecursoNaoEncontradoException(MensagensErro.projetoNaoEncontrado(projetoId)));
 
         Usuario usuario = usuarioRepository
                 .findByEmail(requisicao.email())
                 .orElseThrow(() -> new RecursoNaoEncontradoException(
-                        "Usuario nao encontrado com o email: " + requisicao.email()));
+                        MensagensErro.usuarioNaoEncontradoPorEmail(requisicao.email())));
 
         if (membroProjetoRepository.existsByProjetoIdAndUsuarioId(projetoId, usuario.getId())) {
-            throw new RegraNegocioException("Usuario ja e membro deste projeto");
+            throw new RegraNegocioException(MensagensErro.USUARIO_JA_E_MEMBRO);
         }
 
         MembroProjeto membro = MembroProjeto.builder()
@@ -91,10 +93,10 @@ public class MembroProjetoService {
 
         Projeto projeto = projetoRepository
                 .findById(projetoId)
-                .orElseThrow(() -> new RecursoNaoEncontradoException("Projeto nao encontrado: " + projetoId));
+                .orElseThrow(() -> new RecursoNaoEncontradoException(MensagensErro.projetoNaoEncontrado(projetoId)));
 
         if (projeto.getDono().getId().equals(usuarioId)) {
-            throw new RegraNegocioException("O dono do projeto nao pode ser removido dos membros");
+            throw new RegraNegocioException(MensagensErro.DONO_NAO_PODE_SER_REMOVIDO_DOS_MEMBROS);
         }
 
         MembroProjeto membro = obterMembro(projetoId, usuarioId);

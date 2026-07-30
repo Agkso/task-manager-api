@@ -1,5 +1,6 @@
 package com.taskmanager.auth;
 
+import com.taskmanager.exception.MensagensErro;
 import com.taskmanager.user.Usuario;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -72,11 +73,11 @@ public class RefreshTokenService {
     private RefreshToken buscarValido(String tokenBruto) {
         RefreshToken refreshToken = refreshTokenRepository
                 .findByTokenHash(hash(tokenBruto))
-                .orElseThrow(() -> new BadCredentialsException("Refresh token invalido"));
+                .orElseThrow(() -> new BadCredentialsException(MensagensErro.REFRESH_TOKEN_INVALIDO));
         if (!refreshToken.valido()) {
             log.warn("Tentativa de uso de refresh token invalido/expirado/revogado (usuario {})",
                     refreshToken.getUsuario().getId());
-            throw new BadCredentialsException("Refresh token invalido");
+            throw new BadCredentialsException(MensagensErro.REFRESH_TOKEN_INVALIDO);
         }
         return refreshToken;
     }
@@ -93,7 +94,7 @@ public class RefreshTokenService {
             byte[] resultado = digest.digest(tokenBruto.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(resultado);
         } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("Algoritmo de hash indisponivel: " + ALGORITMO_HASH, e);
+            throw new IllegalStateException(MensagensErro.algoritmoHashIndisponivel(ALGORITMO_HASH), e);
         }
     }
 }
