@@ -1,6 +1,7 @@
 package com.taskmanager.auth;
 
 import com.taskmanager.auth.dto.RequisicaoLogin;
+import com.taskmanager.auth.dto.RequisicaoRefreshToken;
 import com.taskmanager.auth.dto.RequisicaoRegistro;
 import com.taskmanager.auth.dto.RespostaLogin;
 import jakarta.validation.Valid;
@@ -29,5 +30,16 @@ public class AutenticacaoController {
     @PostMapping("/login")
     public ResponseEntity<RespostaLogin> login(@Valid @RequestBody RequisicaoLogin requisicao) {
         return ResponseEntity.ok(autenticacaoService.autenticar(requisicao));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<RespostaLogin> renovar(@Valid @RequestBody RequisicaoRefreshToken requisicao) {
+        return ResponseEntity.ok(autenticacaoService.renovar(requisicao));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@Valid @RequestBody RequisicaoRefreshToken requisicao) {
+        autenticacaoService.logout(requisicao);
+        return ResponseEntity.noContent().build();
     }
 }

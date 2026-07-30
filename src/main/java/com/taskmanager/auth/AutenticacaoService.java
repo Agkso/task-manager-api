@@ -1,6 +1,7 @@
 package com.taskmanager.auth;
 
 import com.taskmanager.auth.dto.RequisicaoLogin;
+import com.taskmanager.auth.dto.RequisicaoRefreshToken;
 import com.taskmanager.auth.dto.RequisicaoRegistro;
 import com.taskmanager.auth.dto.RespostaLogin;
 import com.taskmanager.exception.RegraNegocioException;
@@ -23,16 +24,19 @@ public class AutenticacaoService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+    private final RefreshTokenService refreshTokenService;
 
     public AutenticacaoService(
             UsuarioRepository usuarioRepository,
             PasswordEncoder passwordEncoder,
             AuthenticationManager authenticationManager,
-            JwtService jwtService) {
+            JwtService jwtService,
+            RefreshTokenService refreshTokenService) {
         this.usuarioRepository = usuarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
+        this.refreshTokenService = refreshTokenService;
     }
 
     @Transactional
@@ -50,9 +54,10 @@ public class AutenticacaoService {
 
         usuario = usuarioRepository.save(usuario);
         log.info("Usuario {} registrado", usuario.getId());
-        return new RespostaLogin(jwtService.gerarToken(usuario));
+        return new RespostaLogin(jwtService.gerarToken(usuario), refreshTokenService.gerar(usuario));
     }
 
+    @Transactional
     public RespostaLogin autenticar(RequisicaoLogin requisicao) {
         try {
             authenticationManager.authenticate(
@@ -68,6 +73,19 @@ public class AutenticacaoService {
                         + requisicao.email()));
 
         log.info("Login bem-sucedido: usuario={}", usuario.getId());
-        return new RespostaLogin(jwtService.gerarToken(usuario));
+        return new RespostaLogin(jwtService.gerarToken(usuario), refreshTokenService.gerar(usuario));
+    }
+
+    @Transactional
+    public RespostaLogin renovar(RequisicaoRefreshToken requisicao) {
+        var refreshToken = refreshTokenService.validarERotacionar(requisicao.refreshToken());
+        Usuario usuario = refreshToken.getUsuario();
+        log.info("Access token renovado via refresh token para usuario {}", usuario.getId());
+        return new RespostaLogin(jwtService.gerarToken(usuario), refreshTokenService.gerar(usuario));
+    }
+
+    @Transactional
+    public void logout(RequisicaoRefreshToken requisicao) {
+        refreshTokenService.revogar(requisicao.refreshToken());
     }
 }

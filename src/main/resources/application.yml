@@ -26,3 +26,4 @@ app:
   jwt:
     secret: change-this-secret-should-be-at-least-256-bits-long-for-hs256
     expiration-minutes: 60
+    refresh-expiration-days: 7
