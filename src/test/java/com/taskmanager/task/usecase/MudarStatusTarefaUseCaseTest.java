@@ -1,9 +1,8 @@
-package com.taskmanager.task;
+package com.taskmanager.task.usecase;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -12,10 +11,13 @@ import com.taskmanager.exception.RegraNegocioException;
 import com.taskmanager.project.MembroProjeto;
 import com.taskmanager.project.MembroProjetoService;
 import com.taskmanager.project.Projeto;
-import com.taskmanager.project.ProjetoService;
 import com.taskmanager.project.enums.Papel;
+import com.taskmanager.task.RegrasTransicaoStatusTarefa;
+import com.taskmanager.task.Tarefa;
+import com.taskmanager.task.TarefaHelper;
+import com.taskmanager.task.TarefaMapper;
+import com.taskmanager.task.TarefaRepository;
 import com.taskmanager.task.dto.RequisicaoAtualizarStatus;
-import com.taskmanager.task.dto.RequisicaoTarefa;
 import com.taskmanager.task.enums.Prioridade;
 import com.taskmanager.task.enums.StatusTarefa;
 import com.taskmanager.user.Usuario;
@@ -36,19 +38,13 @@ import org.springframework.security.access.AccessDeniedException;
  * IO de verdade (repositorios, o service de membership).
  */
 @ExtendWith(MockitoExtension.class)
-class TarefaServiceTest {
+class MudarStatusTarefaUseCaseTest {
 
     @Mock
     private TarefaRepository tarefaRepository;
 
     @Mock
-    private HistoricoTarefaRepository historicoTarefaRepository;
-
-    @Mock
     private MembroProjetoService membroProjetoService;
-
-    @Mock
-    private ProjetoService projetoService;
 
     @Mock
     private UsuarioRepository usuarioRepository;
@@ -56,10 +52,7 @@ class TarefaServiceTest {
     @Mock
     private ApplicationEventPublisher eventPublisher;
 
-    @Mock
-    private RelatorioTarefaService relatorioTarefaService;
-
-    private TarefaService tarefaService;
+    private MudarStatusTarefaUseCase mudarStatusTarefaUseCase;
 
     private static final Long PROJETO_ID = 1L;
     private static final Long RESPONSAVEL_ID = 2L;
@@ -67,16 +60,15 @@ class TarefaServiceTest {
     private static final Long SOLICITANTE_ID = 4L;
 
     @BeforeEach
-    void montarService() {
-        tarefaService = new TarefaService(
+    void montarUseCase() {
+        TarefaHelper tarefaHelper = new TarefaHelper(tarefaRepository, membroProjetoService, usuarioRepository);
+        mudarStatusTarefaUseCase = new MudarStatusTarefaUseCase(
                 tarefaRepository,
-                historicoTarefaRepository,
                 membroProjetoService,
-                projetoService,
-                usuarioRepository,
+                tarefaHelper,
+                new TarefaMapper(),
                 new RegrasTransicaoStatusTarefa(),
-                eventPublisher,
-                relatorioTarefaService);
+                eventPublisher);
     }
 
     private Usuario usuario(Long id) {
@@ -103,12 +95,12 @@ class TarefaServiceTest {
     }
 
     @Test
-    void mudarStatus_deveRejeitarVoltaDeDoneParaTodo() {
+    void executar_deveRejeitarVoltaDeDoneParaTodo() {
         when(membroProjetoService.obterMembro(PROJETO_ID, SOLICITANTE_ID)).thenReturn(membro(Papel.ADMIN));
         when(tarefaRepository.findById(TAREFA_ID))
                 .thenReturn(Optional.of(tarefa(StatusTarefa.DONE, Prioridade.LOW, RESPONSAVEL_ID)));
 
-        assertThatThrownBy(() -> tarefaService.mudarStatus(
+        assertThatThrownBy(() -> mudarStatusTarefaUseCase.executar(
                         PROJETO_ID, TAREFA_ID, new RequisicaoAtualizarStatus(StatusTarefa.TODO), SOLICITANTE_ID))
                 .isInstanceOf(RegraNegocioException.class)
                 .hasMessageContaining("DONE");
@@ -117,12 +109,12 @@ class TarefaServiceTest {
     }
 
     @Test
-    void mudarStatus_deveBloquearFechamentoDeCriticaPorMembroComum() {
+    void executar_deveBloquearFechamentoDeCriticaPorMembroComum() {
         when(membroProjetoService.obterMembro(PROJETO_ID, SOLICITANTE_ID)).thenReturn(membro(Papel.MEMBER));
         when(tarefaRepository.findById(TAREFA_ID))
                 .thenReturn(Optional.of(tarefa(StatusTarefa.IN_PROGRESS, Prioridade.CRITICAL, RESPONSAVEL_ID)));
 
-        assertThatThrownBy(() -> tarefaService.mudarStatus(
+        assertThatThrownBy(() -> mudarStatusTarefaUseCase.executar(
                         PROJETO_ID, TAREFA_ID, new RequisicaoAtualizarStatus(StatusTarefa.DONE), SOLICITANTE_ID))
                 .isInstanceOf(AccessDeniedException.class);
 
@@ -130,27 +122,27 @@ class TarefaServiceTest {
     }
 
     @Test
-    void mudarStatus_devePermitirFechamentoDeCriticaPorAdmin() {
+    void executar_devePermitirFechamentoDeCriticaPorAdmin() {
         when(membroProjetoService.obterMembro(PROJETO_ID, SOLICITANTE_ID)).thenReturn(membro(Papel.ADMIN));
         Tarefa critica = tarefa(StatusTarefa.IN_PROGRESS, Prioridade.CRITICAL, RESPONSAVEL_ID);
         when(tarefaRepository.findById(TAREFA_ID)).thenReturn(Optional.of(critica));
         when(tarefaRepository.save(any(Tarefa.class))).thenAnswer(chamada -> chamada.getArgument(0));
 
-        var resposta = tarefaService.mudarStatus(
+        var resposta = mudarStatusTarefaUseCase.executar(
                 PROJETO_ID, TAREFA_ID, new RequisicaoAtualizarStatus(StatusTarefa.DONE), SOLICITANTE_ID);
 
         assertThat(resposta.status()).isEqualTo(StatusTarefa.DONE);
     }
 
     @Test
-    void mudarStatus_deveRejeitarQuandoResponsavelAtingiuLimiteDeWip() {
+    void executar_deveRejeitarQuandoResponsavelAtingiuLimiteDeWip() {
         when(membroProjetoService.obterMembro(PROJETO_ID, SOLICITANTE_ID)).thenReturn(membro(Papel.MEMBER));
         when(tarefaRepository.findById(TAREFA_ID))
                 .thenReturn(Optional.of(tarefa(StatusTarefa.TODO, Prioridade.MEDIUM, RESPONSAVEL_ID)));
         when(tarefaRepository.countByResponsavelIdAndStatus(RESPONSAVEL_ID, StatusTarefa.IN_PROGRESS))
                 .thenReturn(5L);
 
-        assertThatThrownBy(() -> tarefaService.mudarStatus(
+        assertThatThrownBy(() -> mudarStatusTarefaUseCase.executar(
                         PROJETO_ID, TAREFA_ID, new RequisicaoAtualizarStatus(StatusTarefa.IN_PROGRESS), SOLICITANTE_ID))
                 .isInstanceOf(RegraNegocioException.class)
                 .hasMessageContaining("Limite");
@@ -159,7 +151,7 @@ class TarefaServiceTest {
     }
 
     @Test
-    void mudarStatus_devePermitirQuandoAbaixoDoLimiteDeWip() {
+    void executar_devePermitirQuandoAbaixoDoLimiteDeWip() {
         when(membroProjetoService.obterMembro(PROJETO_ID, SOLICITANTE_ID)).thenReturn(membro(Papel.MEMBER));
         when(tarefaRepository.findById(TAREFA_ID))
                 .thenReturn(Optional.of(tarefa(StatusTarefa.TODO, Prioridade.MEDIUM, RESPONSAVEL_ID)));
@@ -167,25 +159,9 @@ class TarefaServiceTest {
                 .thenReturn(4L);
         when(tarefaRepository.save(any(Tarefa.class))).thenAnswer(chamada -> chamada.getArgument(0));
 
-        var resposta = tarefaService.mudarStatus(
+        var resposta = mudarStatusTarefaUseCase.executar(
                 PROJETO_ID, TAREFA_ID, new RequisicaoAtualizarStatus(StatusTarefa.IN_PROGRESS), SOLICITANTE_ID);
 
         assertThat(resposta.status()).isEqualTo(StatusTarefa.IN_PROGRESS);
-    }
-
-    @Test
-    void criar_deveRejeitarQuandoResponsavelNaoEhMembroDoProjeto() {
-        when(membroProjetoService.obterMembro(PROJETO_ID, SOLICITANTE_ID)).thenReturn(membro(Papel.ADMIN));
-        when(projetoService.buscarPorId(PROJETO_ID)).thenReturn(projeto());
-        when(membroProjetoService.ehMembro(PROJETO_ID, RESPONSAVEL_ID)).thenReturn(false);
-
-        RequisicaoTarefa requisicao = new RequisicaoTarefa("Titulo", "desc", Prioridade.LOW, null, RESPONSAVEL_ID);
-
-        assertThatThrownBy(() -> tarefaService.criar(PROJETO_ID, requisicao, SOLICITANTE_ID))
-                .isInstanceOf(RegraNegocioException.class)
-                .hasMessageContaining("membro");
-
-        verify(tarefaRepository, never()).save(any());
-        verify(usuarioRepository, never()).findById(anyLong());
     }
 }
