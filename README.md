@@ -50,30 +50,43 @@ Pacotes organizados por feature (nao por camada) - cada modulo carrega sua entid
 ```
 com.taskmanager
 ├── user        Usuario (entidade central, sem papel embutido)
-├── auth        registro/login, emissao de token
-├── security    JWT (filtro, service, UserDetails), config do Spring Security
+├── auth        AutenticacaoController + auth/usecase (RegistrarUsuarioUseCase,
+│               AutenticarUsuarioUseCase, RenovarTokenUseCase, LogoutUseCase),
+│               RefreshTokenService (rotacao em uso unico)
+├── security    JWT (filtro, service, UserDetails), config do Spring Security, limitacao de
+│               tentativas de login/registro por IP
 ├── project     Projeto, MembroProjeto (o papel ADMIN/MEMBER mora aqui, nao em Usuario)
-│               ProjetoService (CRUD) e MembroProjetoService (membership/autorizacao) separados
-├── task        Tarefa, TarefaService (orquestra), RegrasTransicaoStatusTarefa (regra pura
-│               extraida, sem dependencia de repositorio), TarefaSpecifications (filtros, busca,
-│               ordenacao), HistoricoTarefa/HistoricoTarefaListener (audit log via evento)
+│               ProjetoService (CRUD) e MembroProjetoService (membership/autorizacao) separados,
+│               ProjetoMapper/MembroMapper (entidade -> DTO)
+├── task        Tarefa, task/usecase (uma classe por operacao: CriarTarefaUseCase,
+│               AtualizarTarefaUseCase, ExcluirTarefaUseCase, MudarStatusTarefaUseCase,
+│               ListarTarefasUseCase, BuscarTarefaUseCase, GerarRelatorioTarefaUseCase,
+│               BuscarHistoricoTarefaUseCase), RegrasTransicaoStatusTarefa (regra pura, sem
+│               dependencia de repositorio), TarefaHelper (busca de tarefa + resolucao de
+│               responsavel compartilhada entre use cases), TarefaMapper/HistoricoTarefaMapper
+│               (entidade -> DTO), TarefaSpecifications (filtros, busca, ordenacao),
+│               RelatorioTarefaService (agregacao cacheada), HistoricoTarefa/
+│               HistoricoTarefaListener (audit log via evento)
 ├── common      Auditavel (criadoEm/atualizadoEm via JPA auditing) e PaginaResposta<T>
-├── exception   excecoes de dominio + ManipuladorGlobalExcecoes (RFC 7807)
-└── config      OpenAPI/Swagger
+├── exception   excecoes de dominio + MensagensErro (textos de erro centralizados) +
+│               ManipuladorGlobalExcecoes (RFC 7807)
+└── config      OpenAPI/Swagger, cache (Caffeine)
 ```
 
 Escolhi package-by-feature em vez de package-by-layer (controller/service/repository cada um num pacote so) porque, assim que `task` cresceu, ficava dificil saber rapido o que pertencia a `project` vs `task` olhando pastas separadas por tipo. Com feature module, abrir `task/` mostra tudo que existe sobre tarefa.
 
 `security` e `exception` ficam fora dos modulos porque sao transversais (usados por todos).
 
-Dentro de `project` e `task` tambem apliquei SRP num segundo passo: `ProjetoService` originalmente misturava CRUD de projeto com "quem pode fazer o que" (membership/autorizacao) - virou `MembroProjetoService` separado, que `TarefaService` tambem usa pra checar acesso. Da mesma forma, as 3 regras de transicao de status saíram do `TarefaService` para `RegrasTransicaoStatusTarefa` - classe pura, sem repositorio, testavel sem mock (ver `RegrasTransicaoStatusTarefaTest`). Os filtros/busca/ordenacao da listagem saíram para `TarefaSpecifications` pelo mesmo motivo: manter `TarefaService` como orquestrador, nao como dono da logica de consulta.
+Dentro de `project` e `task` tambem apliquei SRP em mais de um passo. Primeiro, `ProjetoService` originalmente misturava CRUD de projeto com "quem pode fazer o que" (membership/autorizacao) - virou `MembroProjetoService` separado, usado tambem pelos use cases de tarefa pra checar acesso. Depois, `TarefaService`/`AutenticacaoService` (que ainda concentravam varias operacoes - criar, atualizar, excluir, mudar status, listar, relatorio, historico - num service so, com injecao de dependencia escrita na mao) foram quebrados numa classe por operacao em `task.usecase`/`auth.usecase`, injetadas direto no controller: fica explicito o que cada endpoint realmente precisa, sem um service "guarda-chuva" no meio do caminho. As 3 regras de transicao de status ja tinham saido do `TarefaService` para `RegrasTransicaoStatusTarefa` - classe pura, sem repositorio, testavel sem mock (ver `RegrasTransicaoStatusTarefaTest`); os filtros/busca/ordenacao da listagem, para `TarefaSpecifications`.
+
+A conversao entidade -> DTO, que vivia como metodo estatico `de()` dentro de cada record de resposta, virou um `@Component` dedicado (`TarefaMapper`, `HistoricoTarefaMapper`, `ProjetoMapper`, `MembroMapper`) injetado no use case/controller - deixa o DTO como dado puro e a conversao testavel/substituivel via DI, no mesmo espirito da extracao dos use cases.
 
 ## Decisoes tecnicas e tradeoffs
 
 **Papel (ADMIN/MEMBER) vive em `MembroProjeto`, nao em `Usuario`.**
 O enunciado pede dois perfis, mas fechar uma tarefa CRITICAL exige ser "ADMIN do projeto" - ou seja, e uma permissao por projeto, nao global. Um usuario pode ser ADMIN no projeto A e MEMBER no projeto B. Modelar como campo em `Usuario` teria sido mais simples de ler, mas incorreto: nao daria pra expressar "ADMIN so nesse projeto".
 
-**Toda mudanca de status passa por um unico metodo (`TarefaService.mudarStatus`).**
+**Toda mudanca de status passa por um unico metodo (`MudarStatusTarefaUseCase.executar`).**
 POST/PUT de tarefa nao aceitam `status` no corpo - toda tarefa nasce `TODO`. As 3 regras do enunciado (DONE nao volta pra TODO, CRITICAL so fecha por ADMIN, limite de 5 IN_PROGRESS por responsavel) ficam concentradas nesse metodo em vez de espalhadas. Motivo: se o cliente pudesse setar status livremente num PUT generico, teria que replicar as mesmas validacoes em dois lugares (criar/atualizar e a transicao dedicada) ou arriscar burlar as regras por um caminho alternativo.
 
 **Postgres + Flyway em vez de H2.**
@@ -92,7 +105,7 @@ O enunciado pede os dois como itens separados, mas implementar como parametro op
 A consulta usa `LOWER(coluna) LIKE '%termo%'` pra ser case-insensitive; pra isso realmente usar o indice, o indice precisa ser funcional na mesma expressao (`lower(...)`), nao na coluna crua. Isso foi um bug real que cometi na primeira versao (V1 da migration indexava a coluna crua) e corrigi numa V2 - **nunca editei a V1 ja aplicada**, criei uma migration nova, que e a pratica correta com Flyway.
 
 **Paginacao e ordenacao de verdade no banco (`Pageable` + `Specification`), inclusive ordenacao por prioridade.**
-`TarefaRepository.findAll(spec, pageable)` traz so a pagina pedida - o banco faz `LIMIT`/`OFFSET` e devolve o total via uma query de `COUNT` separada (`Page<Tarefa>` cuida disso). O caso chato era ordenar por prioridade: a ordem alfabetica do enum (`CRITICAL, HIGH, LOW, MEDIUM`) nao e a ordem de severidade, e nem `Sort.by(...)` nem `JpaSort.unsafe(...)` resolvem isso via Criteria API (`JpaSort.unsafe` so funciona em query derivada por nome de metodo). A solucao ficou em `TarefaSpecifications.ordenarPorPrioridade`: monta um `CASE WHEN` direto no `CriteriaBuilder` (`LOW=1 ... CRITICAL=4`) e chama `query.orderBy(...)` dentro da propria `Specification`; `TarefaService.listar` passa `Sort.unsorted()` pro `Pageable` nesse caso especifico, pra ele nao sobrescrever a ordenacao que a `Specification` ja fixou. Pra ordenacao simples (`criadoEm`/`prazo`) uso `Sort.by(...)` normal.
+`TarefaRepository.findAll(spec, pageable)` traz so a pagina pedida - o banco faz `LIMIT`/`OFFSET` e devolve o total via uma query de `COUNT` separada (`Page<Tarefa>` cuida disso). O caso chato era ordenar por prioridade: a ordem alfabetica do enum (`CRITICAL, HIGH, LOW, MEDIUM`) nao e a ordem de severidade, e nem `Sort.by(...)` nem `JpaSort.unsafe(...)` resolvem isso via Criteria API (`JpaSort.unsafe` so funciona em query derivada por nome de metodo). A solucao ficou em `TarefaSpecifications.ordenarPorPrioridade`: monta um `CASE WHEN` direto no `CriteriaBuilder` (`LOW=1 ... CRITICAL=4`) e chama `query.orderBy(...)` dentro da propria `Specification`; `ListarTarefasUseCase.executar` passa `Sort.unsorted()` pro `Pageable` nesse caso especifico, pra ele nao sobrescrever a ordenacao que a `Specification` ja fixou. Pra ordenacao simples (`criadoEm`/`prazo`) uso `Sort.by(...)` normal.
 
 `TarefaSpecifications.comResponsavelCarregado()` faz fetch join de `responsavel` (evita N+1 ao montar `RespostaTarefa`) - so e seguro porque `responsavel` e `@ManyToOne` (to-one); precisa checar `query.getResultType()` porque `findAll(spec, Pageable)` dispara uma query de `COUNT` auxiliar, e fetch join nao e permitido nela.
 
@@ -108,12 +121,18 @@ O token (`UsuarioAutenticado`) carrega so a identidade (email/id), com uma autho
 **Logging: WARN sem stack trace pra erro esperado, ERROR com stack trace so no fallback generico.**
 `ManipuladorGlobalExcecoes` loga cada excecao tratada (404/403/409/etc) em WARN, so com a mensagem - stack trace ali so teria poluido o log de algo que e comportamento normal da API. O fallback de `Exception` generica loga em ERROR com stack trace completo, porque por definicao e algo que eu nao previ; sem isso, um bug de verdade em producao passaria em silencio (foi literalmente assim antes dessa mudanca).
 
-**Historico de alteracoes (`HistoricoTarefa`) via evento, desacoplado do `TarefaService`.**
-`TarefaService.mudarStatus` publica um `TarefaStatusAlteradoEvent`; quem grava o registro (quem, status anterior, status novo, quando) e' `HistoricoTarefaListener`, um `@TransactionalEventListener` separado. Duas escolhas deliberadas: `AFTER_COMMIT` (nao grava historico de uma transacao que sofreu rollback) e `REQUIRES_NEW` (a transacao original ja fechou quando o listener roda, entao ele precisa abrir a propria). O design de concentrar toda mudanca de status num unico metodo (ver acima) foi o que permitiu plugar isso como um listener sem tocar em nenhum controller.
+**Historico de alteracoes (`HistoricoTarefa`) via evento, desacoplado de `MudarStatusTarefaUseCase`.**
+`MudarStatusTarefaUseCase.executar` publica um `TarefaStatusAlteradoEvent`; quem grava o registro (quem, status anterior, status novo, quando) e' `HistoricoTarefaListener`, um `@TransactionalEventListener` separado. Duas escolhas deliberadas: `AFTER_COMMIT` (nao grava historico de uma transacao que sofreu rollback) e `REQUIRES_NEW` (a transacao original ja fechou quando o listener roda, entao ele precisa abrir a propria). O design de concentrar toda mudanca de status num unico metodo (ver acima) foi o que permitiu plugar isso como um listener sem tocar em nenhum controller.
+
+**Mensagens de erro centralizadas em `MensagensErro`.**
+Textos como `"Projeto nao encontrado: "` ou `"Voce nao e membro deste projeto"` eram literais repetidos em varios services (cada excecao lancada com sua propria string). Uma classe `MensagensErro` com constantes e metodos estaticos parametrizados (`tarefaNaoEncontrada(id)`, `limiteDeTarefasEmAndamentoAtingido(limite)`) virou o unico lugar que escreve esses textos - evita divergencia entre copias e facilita achar/trocar uma mensagem sem grep em N arquivos.
+
+**Filtros de listagem agrupados em `RequisicaoFiltroTarefa` via `@ModelAttribute`.**
+`GET /tarefas` tinha 10 `@RequestParam` soltos no metodo do controller (status, prioridade, responsavelId, prazoDesde, prazoAte, busca, ordenarPor, direcao, pagina, tamanho). Viraram um `record` vinculado com `@ModelAttribute` - suportado como *constructor binding* desde o Spring Framework 6.1, entao nao exige o record ter setters nem construtor sem argumentos. Um construtor compacto assume os defaults que antes viviam em `@RequestParam(defaultValue = ...)`.
 
 ## Testes
 
-- **Unitarios (Mockito)**: `TarefaServiceTest` cobre as 3 regras de negocio de status + validacao de responsavel; `AutenticacaoServiceTest` cobre o caso de email duplicado. Priorizei os pontos onde um bug de logica passaria despercebido em teste manual e onde o enunciado exige explicitamente uma regra.
+- **Unitarios (Mockito)**: `MudarStatusTarefaUseCaseTest` cobre as 3 regras de negocio de status, `CriarTarefaUseCaseTest` cobre a validacao de responsavel, `RegistrarUsuarioUseCaseTest` cobre o caso de email duplicado. Priorizei os pontos onde um bug de logica passaria despercebido em teste manual e onde o enunciado exige explicitamente uma regra.
 - **Integracao (`@SpringBootTest` + Testcontainers)**: `FluxoCriticoIntegrationTest` sobe um Postgres real (nao H2) e roda o fluxo completo registrar → login → criar projeto → criar tarefa → mudar status → conferir relatorio, alem do caso de rota protegida sem token. Usar Postgres real aqui (em vez de H2) evita que o teste passe por causa de uma diferenca de dialeto que so apareceria em producao.
 - Não persegui cobertura de 100% - o enunciado explicitamente não pede isso, e testar getters/setters ou DTOs (records) não agrega nada.
 
