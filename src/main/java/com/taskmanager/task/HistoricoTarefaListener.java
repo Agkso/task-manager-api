@@ -12,11 +12,11 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
- * Desacoplado de TarefaService de proposito: gravar historico e uma reacao
- * a mudanca de status, nao responsabilidade de quem muda o status. Isso
- * bate com o que o design ja permitia (tudo passa por
- * TarefaService.mudarStatus) - so precisou publicar um evento la, sem
- * mexer em controller nenhum.
+ * Desacoplado de MudarStatusTarefaUseCase de proposito: gravar historico e
+ * uma reacao a mudanca de status, nao responsabilidade de quem muda o
+ * status. Isso bate com o que o design ja permitia (toda mudanca de status
+ * passa por MudarStatusTarefaUseCase) - so precisou publicar um evento la,
+ * sem mexer em controller nenhum.
  *
  * AFTER_COMMIT evita gravar historico de uma transacao que acabou dando
  * rollback (ex.: se uma regra de negocio barrasse a mudanca depois do

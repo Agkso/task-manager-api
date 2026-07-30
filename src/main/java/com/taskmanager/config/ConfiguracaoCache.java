@@ -13,10 +13,11 @@ import org.springframework.context.annotation.Configuration;
  * Cache local (Caffeine), nao distribuido - adequado pra uma instancia
  * unica da aplicacao, que e o caso aqui. TTL curto (5 min) porque o
  * relatorio precisa refletir mudancas de status em tempo razoavel; ainda
- * assim, TarefaService evita a leitura desatualizada de verdade evictando
- * a entrada no create/update/delete/mudarStatus (ver @CacheEvict la), o TTL
- * e so uma rede de seguranca pra caso alguma via de escrita futura esqueca
- * de evictar.
+ * assim, os use cases de escrita de tarefa (criar/atualizar/excluir/mudar
+ * status, em com.taskmanager.task.usecase) evitam a leitura desatualizada
+ * de verdade evictando a entrada (ver @CacheEvict neles), o TTL e so uma
+ * rede de seguranca pra caso alguma via de escrita futura esqueca de
+ * evictar.
  */
 @Configuration
 @EnableCaching

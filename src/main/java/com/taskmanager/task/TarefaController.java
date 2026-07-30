@@ -9,6 +9,14 @@ import com.taskmanager.task.dto.RespostaRelatorio;
 import com.taskmanager.task.dto.RespostaTarefa;
 import com.taskmanager.task.enums.Prioridade;
 import com.taskmanager.task.enums.StatusTarefa;
+import com.taskmanager.task.usecase.AtualizarTarefaUseCase;
+import com.taskmanager.task.usecase.BuscarHistoricoTarefaUseCase;
+import com.taskmanager.task.usecase.BuscarTarefaUseCase;
+import com.taskmanager.task.usecase.CriarTarefaUseCase;
+import com.taskmanager.task.usecase.ExcluirTarefaUseCase;
+import com.taskmanager.task.usecase.GerarRelatorioTarefaUseCase;
+import com.taskmanager.task.usecase.ListarTarefasUseCase;
+import com.taskmanager.task.usecase.MudarStatusTarefaUseCase;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -37,14 +45,21 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class TarefaController {
 
-    private final TarefaService tarefaService;
+    private final CriarTarefaUseCase criarTarefaUseCase;
+    private final AtualizarTarefaUseCase atualizarTarefaUseCase;
+    private final ExcluirTarefaUseCase excluirTarefaUseCase;
+    private final MudarStatusTarefaUseCase mudarStatusTarefaUseCase;
+    private final ListarTarefasUseCase listarTarefasUseCase;
+    private final BuscarTarefaUseCase buscarTarefaUseCase;
+    private final GerarRelatorioTarefaUseCase gerarRelatorioTarefaUseCase;
+    private final BuscarHistoricoTarefaUseCase buscarHistoricoTarefaUseCase;
 
     @PostMapping
     public ResponseEntity<RespostaTarefa> criar(
             @PathVariable Long projetoId,
             @Valid @RequestBody RequisicaoTarefa requisicao,
             @AuthenticationPrincipal UsuarioAutenticado principal) {
-        RespostaTarefa tarefa = tarefaService.criar(projetoId, requisicao, principal.getUsuarioId());
+        RespostaTarefa tarefa = criarTarefaUseCase.executar(projetoId, requisicao, principal.getUsuarioId());
         return ResponseEntity.status(HttpStatus.CREATED).body(tarefa);
     }
 
@@ -66,7 +81,7 @@ public class TarefaController {
                     @Max(value = 100, message = "tamanho deve ser no maximo 100")
                     int tamanho,
             @AuthenticationPrincipal UsuarioAutenticado principal) {
-        return tarefaService.listar(
+        return listarTarefasUseCase.executar(
                 projetoId,
                 principal.getUsuarioId(),
                 status,
@@ -84,7 +99,7 @@ public class TarefaController {
     @GetMapping("/relatorio")
     public RespostaRelatorio relatorio(
             @PathVariable Long projetoId, @AuthenticationPrincipal UsuarioAutenticado principal) {
-        return tarefaService.gerarRelatorio(projetoId, principal.getUsuarioId());
+        return gerarRelatorioTarefaUseCase.executar(projetoId, principal.getUsuarioId());
     }
 
     @GetMapping("/{tarefaId}")
@@ -92,7 +107,7 @@ public class TarefaController {
             @PathVariable Long projetoId,
             @PathVariable Long tarefaId,
             @AuthenticationPrincipal UsuarioAutenticado principal) {
-        return tarefaService.buscarPorId(projetoId, tarefaId, principal.getUsuarioId());
+        return buscarTarefaUseCase.executar(projetoId, tarefaId, principal.getUsuarioId());
     }
 
     @GetMapping("/{tarefaId}/historico")
@@ -100,7 +115,7 @@ public class TarefaController {
             @PathVariable Long projetoId,
             @PathVariable Long tarefaId,
             @AuthenticationPrincipal UsuarioAutenticado principal) {
-        return tarefaService.buscarHistorico(projetoId, tarefaId, principal.getUsuarioId());
+        return buscarHistoricoTarefaUseCase.executar(projetoId, tarefaId, principal.getUsuarioId());
     }
 
     @PutMapping("/{tarefaId}")
@@ -109,7 +124,7 @@ public class TarefaController {
             @PathVariable Long tarefaId,
             @Valid @RequestBody RequisicaoTarefa requisicao,
             @AuthenticationPrincipal UsuarioAutenticado principal) {
-        return tarefaService.atualizar(projetoId, tarefaId, requisicao, principal.getUsuarioId());
+        return atualizarTarefaUseCase.executar(projetoId, tarefaId, requisicao, principal.getUsuarioId());
     }
 
     @PatchMapping("/{tarefaId}/status")
@@ -118,7 +133,7 @@ public class TarefaController {
             @PathVariable Long tarefaId,
             @Valid @RequestBody RequisicaoAtualizarStatus requisicao,
             @AuthenticationPrincipal UsuarioAutenticado principal) {
-        return tarefaService.mudarStatus(projetoId, tarefaId, requisicao, principal.getUsuarioId());
+        return mudarStatusTarefaUseCase.executar(projetoId, tarefaId, requisicao, principal.getUsuarioId());
     }
 
     @DeleteMapping("/{tarefaId}")
@@ -126,7 +141,7 @@ public class TarefaController {
             @PathVariable Long projetoId,
             @PathVariable Long tarefaId,
             @AuthenticationPrincipal UsuarioAutenticado principal) {
-        tarefaService.excluir(projetoId, tarefaId, principal.getUsuarioId());
+        excluirTarefaUseCase.executar(projetoId, tarefaId, principal.getUsuarioId());
         return ResponseEntity.noContent().build();
     }
 }
