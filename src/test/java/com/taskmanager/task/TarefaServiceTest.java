@@ -10,7 +10,6 @@ import static org.mockito.Mockito.when;
 
 import com.taskmanager.exception.RegraNegocioException;
 import com.taskmanager.project.MembroProjeto;
-import com.taskmanager.project.MembroProjetoRepository;
 import com.taskmanager.project.MembroProjetoService;
 import com.taskmanager.project.Projeto;
 import com.taskmanager.project.ProjetoService;
@@ -32,7 +31,8 @@ import org.springframework.security.access.AccessDeniedException;
 /**
  * RegrasTransicaoStatusTarefa entra como instancia real (nao mock): e uma
  * regra pura, sem dependencia de repositorio, entao mockar so esconderia
- * o comportamento que a gente quer garantir aqui.
+ * o comportamento que a gente quer garantir aqui. So mockamos o que tem
+ * IO de verdade (repositorios, o service de membership).
  */
 @ExtendWith(MockitoExtension.class)
 class TarefaServiceTest {
@@ -45,9 +45,6 @@ class TarefaServiceTest {
 
     @Mock
     private ProjetoService projetoService;
-
-    @Mock
-    private MembroProjetoRepository membroProjetoRepository;
 
     @Mock
     private UsuarioRepository usuarioRepository;
@@ -65,7 +62,6 @@ class TarefaServiceTest {
                 tarefaRepository,
                 membroProjetoService,
                 projetoService,
-                membroProjetoRepository,
                 usuarioRepository,
                 new RegrasTransicaoStatusTarefa());
     }
@@ -168,8 +164,7 @@ class TarefaServiceTest {
     void criar_deveRejeitarQuandoResponsavelNaoEhMembroDoProjeto() {
         when(membroProjetoService.obterMembro(PROJETO_ID, SOLICITANTE_ID)).thenReturn(membro(Papel.ADMIN));
         when(projetoService.buscarPorId(PROJETO_ID)).thenReturn(projeto());
-        when(membroProjetoRepository.existsByProjetoIdAndUsuarioId(PROJETO_ID, RESPONSAVEL_ID))
-                .thenReturn(false);
+        when(membroProjetoService.ehMembro(PROJETO_ID, RESPONSAVEL_ID)).thenReturn(false);
 
         RequisicaoTarefa requisicao = new RequisicaoTarefa("Titulo", "desc", Prioridade.LOW, null, RESPONSAVEL_ID);
 

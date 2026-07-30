@@ -7,12 +7,15 @@ import com.taskmanager.exception.RegraNegocioException;
 import com.taskmanager.security.JwtService;
 import com.taskmanager.user.Usuario;
 import com.taskmanager.user.UsuarioRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 public class AutenticacaoService {
 
@@ -35,6 +38,7 @@ public class AutenticacaoService {
     @Transactional
     public RespostaLogin registrar(RequisicaoRegistro requisicao) {
         if (usuarioRepository.existsByEmail(requisicao.email())) {
+            log.warn("Tentativa de registro com email ja cadastrado: {}", requisicao.email());
             throw new RegraNegocioException("Ja existe um usuario cadastrado com esse email");
         }
 
@@ -44,19 +48,26 @@ public class AutenticacaoService {
                 .senha(passwordEncoder.encode(requisicao.senha()))
                 .build();
 
-        usuarioRepository.save(usuario);
+        usuario = usuarioRepository.save(usuario);
+        log.info("Usuario {} registrado", usuario.getId());
         return new RespostaLogin(jwtService.gerarToken(usuario));
     }
 
     public RespostaLogin autenticar(RequisicaoLogin requisicao) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(requisicao.email(), requisicao.senha()));
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(requisicao.email(), requisicao.senha()));
+        } catch (BadCredentialsException credenciaisInvalidas) {
+            log.warn("Tentativa de login com credenciais invalidas para o email {}", requisicao.email());
+            throw credenciaisInvalidas;
+        }
 
         Usuario usuario = usuarioRepository
                 .findByEmail(requisicao.email())
                 .orElseThrow(() -> new IllegalStateException("Usuario autenticado nao encontrado: "
                         + requisicao.email()));
 
+        log.info("Login bem-sucedido: usuario={}", usuario.getId());
         return new RespostaLogin(jwtService.gerarToken(usuario));
     }
 }

@@ -6,6 +6,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -15,6 +16,7 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+@Slf4j
 @Component
 public class FiltroAutenticacaoJwt extends OncePerRequestFilter {
 
@@ -56,7 +58,10 @@ public class FiltroAutenticacaoJwt extends OncePerRequestFilter {
             }
         } catch (JwtException | UsernameNotFoundException tokenInvalido) {
             // token invalido/expirado ou usuario removido: segue sem autenticar,
-            // o PontoEntradaNaoAutenticado se encarrega de barrar la na frente
+            // o PontoEntradaNaoAutenticado se encarrega de barrar la na frente.
+            // DEBUG (nao WARN) porque token expirado e rotina, nao anomalia -
+            // nunca logar o token em si, so o motivo.
+            log.debug("Token JWT rejeitado em {}: {}", request.getRequestURI(), tokenInvalido.getMessage());
         }
 
         filterChain.doFilter(request, response);

@@ -4,7 +4,6 @@ import com.taskmanager.common.dto.PaginaResposta;
 import com.taskmanager.exception.RecursoNaoEncontradoException;
 import com.taskmanager.exception.RegraNegocioException;
 import com.taskmanager.project.MembroProjeto;
-import com.taskmanager.project.MembroProjetoRepository;
 import com.taskmanager.project.MembroProjetoService;
 import com.taskmanager.project.Projeto;
 import com.taskmanager.project.ProjetoService;
@@ -20,10 +19,12 @@ import java.time.LocalDateTime;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 public class TarefaService {
 
@@ -33,7 +34,6 @@ public class TarefaService {
     private final TarefaRepository tarefaRepository;
     private final MembroProjetoService membroProjetoService;
     private final ProjetoService projetoService;
-    private final MembroProjetoRepository membroProjetoRepository;
     private final UsuarioRepository usuarioRepository;
     private final RegrasTransicaoStatusTarefa regrasTransicaoStatusTarefa;
 
@@ -41,13 +41,11 @@ public class TarefaService {
             TarefaRepository tarefaRepository,
             MembroProjetoService membroProjetoService,
             ProjetoService projetoService,
-            MembroProjetoRepository membroProjetoRepository,
             UsuarioRepository usuarioRepository,
             RegrasTransicaoStatusTarefa regrasTransicaoStatusTarefa) {
         this.tarefaRepository = tarefaRepository;
         this.membroProjetoService = membroProjetoService;
         this.projetoService = projetoService;
-        this.membroProjetoRepository = membroProjetoRepository;
         this.usuarioRepository = usuarioRepository;
         this.regrasTransicaoStatusTarefa = regrasTransicaoStatusTarefa;
     }
@@ -68,7 +66,9 @@ public class TarefaService {
                 .status(StatusTarefa.TODO)
                 .build();
 
-        return RespostaTarefa.de(tarefaRepository.save(tarefa));
+        Tarefa salva = tarefaRepository.save(tarefa);
+        log.info("Tarefa {} criada no projeto {} por usuario {}", salva.getId(), projetoId, solicitanteId);
+        return RespostaTarefa.de(salva);
     }
 
     @Transactional(readOnly = true)
@@ -90,7 +90,9 @@ public class TarefaService {
         tarefa.setPrazo(requisicao.prazo());
         tarefa.setResponsavel(responsavel);
 
-        return RespostaTarefa.de(tarefaRepository.save(tarefa));
+        RespostaTarefa resposta = RespostaTarefa.de(tarefaRepository.save(tarefa));
+        log.info("Tarefa {} atualizada por usuario {}", tarefaId, solicitanteId);
+        return resposta;
     }
 
     @Transactional
@@ -98,6 +100,7 @@ public class TarefaService {
         membroProjetoService.obterMembro(projetoId, solicitanteId);
         Tarefa tarefa = buscarEntidade(projetoId, tarefaId);
         tarefaRepository.delete(tarefa);
+        log.info("Tarefa {} excluida por usuario {}", tarefaId, solicitanteId);
     }
 
     @Transactional
@@ -111,10 +114,18 @@ public class TarefaService {
                 : tarefaRepository.countByResponsavelIdAndStatus(
                         tarefa.getResponsavel().getId(), StatusTarefa.IN_PROGRESS);
 
+        StatusTarefa statusAnterior = tarefa.getStatus();
         regrasTransicaoStatusTarefa.validar(tarefa, requisicao.status(), membro.getPapel(), tarefasEmAndamento);
 
         tarefa.setStatus(requisicao.status());
-        return RespostaTarefa.de(tarefaRepository.save(tarefa));
+        RespostaTarefa resposta = RespostaTarefa.de(tarefaRepository.save(tarefa));
+        log.info(
+                "Tarefa {} mudou de status {} para {} (solicitado por usuario {})",
+                tarefaId,
+                statusAnterior,
+                requisicao.status(),
+                solicitanteId);
+        return resposta;
     }
 
     @Transactional(readOnly = true)
@@ -193,7 +204,7 @@ public class TarefaService {
         if (responsavelId == null) {
             return null;
         }
-        if (!membroProjetoRepository.existsByProjetoIdAndUsuarioId(projetoId, responsavelId)) {
+        if (!membroProjetoService.ehMembro(projetoId, responsavelId)) {
             throw new RegraNegocioException("O responsavel informado nao e membro deste projeto");
         }
         return usuarioRepository
