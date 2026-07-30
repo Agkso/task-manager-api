@@ -53,7 +53,9 @@ com.taskmanager
 ├── auth        registro/login, emissao de token
 ├── security    JWT (filtro, service, UserDetails), config do Spring Security
 ├── project     Projeto, MembroProjeto (o papel ADMIN/MEMBER mora aqui, nao em Usuario)
-├── task        Tarefa, regras de status, filtros, busca, relatorio
+│               ProjetoService (CRUD) e MembroProjetoService (membership/autorizacao) separados
+├── task        Tarefa, TarefaService (orquestra), RegrasTransicaoStatusTarefa e TarefaOrdenador
+│               (regras puras extraidas, sem dependencia de repositorio), filtros, busca, relatorio
 ├── common      Auditavel (criadoEm/atualizadoEm via JPA auditing) e PaginaResposta<T>
 ├── exception   excecoes de dominio + ManipuladorGlobalExcecoes (RFC 7807)
 └── config      OpenAPI/Swagger
@@ -62,6 +64,8 @@ com.taskmanager
 Escolhi package-by-feature em vez de package-by-layer (controller/service/repository cada um num pacote so) porque, assim que `task` cresceu, ficava dificil saber rapido o que pertencia a `project` vs `task` olhando pastas separadas por tipo. Com feature module, abrir `task/` mostra tudo que existe sobre tarefa.
 
 `security` e `exception` ficam fora dos modulos porque sao transversais (usados por todos).
+
+Dentro de `project` e `task` tambem apliquei SRP num segundo passo: `ProjetoService` originalmente misturava CRUD de projeto com "quem pode fazer o que" (membership/autorizacao) - virou `MembroProjetoService` separado, que `TarefaService` tambem usa pra checar acesso. Da mesma forma, as 3 regras de transicao de status e a logica de ordenacao saíram do `TarefaService` para `RegrasTransicaoStatusTarefa`/`TarefaOrdenador` - classes puras, sem repositorio, testaveis sem mock (ver `RegrasTransicaoStatusTarefaTest`).
 
 ## Decisoes tecnicas e tradeoffs
 
@@ -81,7 +85,7 @@ Mais simples, indice menor, sequencial. UUID valeria a pena se os IDs fossem exp
 O enunciado (em portugues) define esses valores literalmente, inclusive no exemplo de JSON do relatorio (`"byStatus": {"TODO": 12, ...}`). Traduzir os valores quebraria esse contrato sem necessidade. Por isso os campos do DTO do relatorio tambem se chamam `byStatus`/`byPriority` (nao `porStatus`/`porPrioridade`) - seguem o exemplo a risca.
 
 **Ordenacao por prioridade usa `Prioridade.ordinal()`.**
-`Prioridade` foi declarado na ordem `LOW, MEDIUM, HIGH, CRITICAL`, entao o ordinal (0..3) ja da a ordem certa de severidade sem precisar de um mapa de pesos. Documentei no codigo (`TarefaService.comparadorDe`) que isso depende da ordem de declaracao - se alguem reordenar o enum sem perceber essa dependencia, a ordenacao quebra silenciosamente. Uma alternativa mais robusta seria uma expressao `CASE WHEN` no banco; optei pela solucao mais simples dado o volume de dados esperado no desafio (ver "o que eu faria diferente").
+`Prioridade` foi declarado na ordem `LOW, MEDIUM, HIGH, CRITICAL`, entao o ordinal (0..3) ja da a ordem certa de severidade sem precisar de um mapa de pesos. Documentei no codigo (`TarefaOrdenador.comparador`) que isso depende da ordem de declaracao - se alguem reordenar o enum sem perceber essa dependencia, a ordenacao quebra silenciosamente. Uma alternativa mais robusta seria uma expressao `CASE WHEN` no banco; optei pela solucao mais simples dado o volume de dados esperado no desafio (ver "o que eu faria diferente").
 
 **Filtro + busca textual no mesmo endpoint de listagem (`GET /tarefas?busca=...`), em vez de uma rota `/tarefas/busca` separada.**
 O enunciado pede os dois como itens separados, mas implementar como parametro opcional do mesmo endpoint permite combinar busca com os outros filtros (status, prioridade, prazo) numa unica chamada, o que e mais util na pratica do que forcar o cliente a escolher entre filtrar OU buscar.
@@ -99,7 +103,10 @@ Simplificação deliberada: ordenar por prioridade exige uma logica (ordinal do 
 Sem isso, `MembroProjeto.usuario` e `Projeto.dono` (ambos `@ManyToOne(LAZY)`) estourariam `LazyInitializationException` ao montar a resposta fora da transacao - foi exatamente o bug que encontrei testando manualmente o endpoint de listar membros. Corrigi com `@EntityGraph(attributePaths = ...)` nas consultas que precisam da associação, em vez de reabrir a sessão na view (que reintroduziria N+1 silenciosos em outros lugares).
 
 **Sem papel/role global no JWT.**
-O token (`UsuarioAutenticado`) carrega so a identidade (email/id), com uma authority generica (`ROLE_USER`). Toda autorizacao de projeto (e' membro? e' ADMIN?) e resolvida em `ProjetoService.obterMembro`/`exigirAdmin`, consultando `MembroProjeto` a cada chamada. Reflete o modelo de dados (papel e por projeto) e evita um token que fica desatualizado se o papel do usuario mudar no meio da validade dele.
+O token (`UsuarioAutenticado`) carrega so a identidade (email/id), com uma authority generica (`ROLE_USER`). Toda autorizacao de projeto (e' membro? e' ADMIN?) e resolvida em `MembroProjetoService.obterMembro`/`exigirAdmin`, consultando `MembroProjeto` a cada chamada. Reflete o modelo de dados (papel e por projeto) e evita um token que fica desatualizado se o papel do usuario mudar no meio da validade dele.
+
+**Logging: WARN sem stack trace pra erro esperado, ERROR com stack trace so no fallback generico.**
+`ManipuladorGlobalExcecoes` loga cada excecao tratada (404/403/409/etc) em WARN, so com a mensagem - stack trace ali so teria poluido o log de algo que e comportamento normal da API. O fallback de `Exception` generica loga em ERROR com stack trace completo, porque por definicao e algo que eu nao previ; sem isso, um bug de verdade em producao passaria em silencio (foi literalmente assim antes dessa mudanca).
 
 ## Testes
 
