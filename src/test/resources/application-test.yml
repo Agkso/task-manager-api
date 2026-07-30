@@ -1,0 +1,21 @@
+# Ativado via @ActiveProfiles("test") nos testes de integracao que usam
+# MockMvc (FluxoCriticoIntegrationTest, RelatorioCacheIntegrationTest,
+# ProjetoAutorizacaoIntegrationTest). E' um profile document (nome
+# application-test.yml, nao application.yml) - o Spring Boot mescla isso
+# por cima do application.yml principal, nao substitui; datasource/flyway
+# continuam vindo de la (e o TestcontainersConfiguration troca a url em
+# runtime).
+#
+# rate-limit alto aqui de proposito: MockMvc nunca sai da JVM, entao toda
+# requisicao chega com o mesmo IP (127.0.0.1), e classes de teste com a
+# mesma config (incluindo o mesmo profile) compartilham um unico contexto
+# Spring - logo, o mesmo bucket do FiltroLimitacaoRequisicoes. Um limite
+# baixo aqui quebraria testes sem nada a ver com rate limit so por rodarem
+# depois de outro que ja bateu a cota. FiltroLimitacaoRequisicoesIntegrationTest
+# de proposito NAO ativa esse profile, pra herdar o limite baixo real do
+# application.yml (capacidade: 5) - e' exatamente o que aquele teste quer
+# validar, e a ausencia do profile ja garante um contexto Spring separado.
+app:
+  rate-limit:
+    capacidade: 10000
+    janela-minutos: 1

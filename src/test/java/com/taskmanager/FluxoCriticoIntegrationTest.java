@@ -15,6 +15,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -22,10 +23,15 @@ import org.springframework.test.web.servlet.MockMvc;
  * criar tarefa -> mover pra IN_PROGRESS -> conferir no relatorio. Sobe um
  * Postgres real via Testcontainers pra nao mascarar diferenca de dialeto
  * (o resto dos testes de servico usa Mockito e nao toca banco).
+ *
+ * @ActiveProfiles("test") ativa application-test.yml (rate-limit alto) - ver
+ * o comentario la para o motivo (MockMvc + contexto Spring compartilhado
+ * entre classes de teste).
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @AutoConfigureMockMvc
+@ActiveProfiles("test")
 class FluxoCriticoIntegrationTest {
 
     @Autowired

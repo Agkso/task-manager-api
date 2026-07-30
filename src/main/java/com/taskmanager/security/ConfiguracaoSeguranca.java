@@ -24,6 +24,7 @@ public class ConfiguracaoSeguranca {
     };
 
     private final FiltroAutenticacaoJwt filtroAutenticacaoJwt;
+    private final FiltroLimitacaoRequisicoes filtroLimitacaoRequisicoes;
     private final UsuarioDetailsService usuarioDetailsService;
     private final PontoEntradaNaoAutenticado pontoEntradaNaoAutenticado;
 
@@ -37,6 +38,7 @@ public class ConfiguracaoSeguranca {
                         .anyRequest()
                         .authenticated())
                 .exceptionHandling(handler -> handler.authenticationEntryPoint(pontoEntradaNaoAutenticado))
+                .addFilterBefore(filtroLimitacaoRequisicoes, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(filtroAutenticacaoJwt, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
