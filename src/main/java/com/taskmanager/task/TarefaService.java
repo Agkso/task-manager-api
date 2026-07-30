@@ -20,6 +20,10 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -144,6 +148,9 @@ public class TarefaService {
             int tamanho) {
         membroProjetoService.obterMembro(projetoId, solicitanteId);
 
+        boolean ordenarPorPrioridade = "prioridade".equals(ordenarPor);
+        boolean descendente = "desc".equalsIgnoreCase(direcao);
+
         Specification<Tarefa> spec = Specification.where(TarefaSpecifications.doProjeto(projetoId))
                 .and(TarefaSpecifications.comStatus(status))
                 .and(TarefaSpecifications.comPrioridade(prioridade))
@@ -153,20 +160,29 @@ public class TarefaService {
                 .and(TarefaSpecifications.comTextoEm(texto))
                 .and(TarefaSpecifications.comResponsavelCarregado());
 
-        List<Tarefa> tarefas = tarefaRepository.findAll(spec);
-        tarefas.sort(TarefaOrdenador.comparador(ordenarPor, direcao));
+        if (ordenarPorPrioridade) {
+            spec = spec.and(TarefaSpecifications.ordenarPorPrioridade(descendente));
+        }
 
         int paginaSegura = Math.max(pagina, 0);
         int tamanhoSeguro = tamanho <= 0 ? TAMANHO_PAGINA_PADRAO : Math.min(tamanho, TAMANHO_PAGINA_MAXIMO);
-        int totalElementos = tarefas.size();
-        int totalPaginas = (int) Math.ceil(totalElementos / (double) tamanhoSeguro);
-        int inicio = Math.min(paginaSegura * tamanhoSeguro, totalElementos);
-        int fim = Math.min(inicio + tamanhoSeguro, totalElementos);
+        // prioridade: a ordenacao ja foi fixada na Specification via query.orderBy(...);
+        // Sort.unsorted() aqui evita que o Pageable sobrescreva isso.
+        Sort sort = ordenarPorPrioridade ? Sort.unsorted() : construirOrdenacaoSimples(ordenarPor, descendente);
+        Pageable pageable = PageRequest.of(paginaSegura, tamanhoSeguro, sort);
 
+        Page<Tarefa> paginaTarefas = tarefaRepository.findAll(spec, pageable);
         List<RespostaTarefa> conteudo =
-                tarefas.subList(inicio, fim).stream().map(RespostaTarefa::de).toList();
+                paginaTarefas.getContent().stream().map(RespostaTarefa::de).toList();
 
-        return new PaginaResposta<>(conteudo, paginaSegura, totalPaginas, totalElementos);
+        return new PaginaResposta<>(
+                conteudo, paginaTarefas.getNumber(), paginaTarefas.getTotalPages(), paginaTarefas.getTotalElements());
+    }
+
+    private Sort construirOrdenacaoSimples(String ordenarPor, boolean descendente) {
+        Sort.Direction sentido = descendente ? Sort.Direction.DESC : Sort.Direction.ASC;
+        String propriedade = "prazo".equals(ordenarPor) ? "prazo" : "criadoEm";
+        return Sort.by(sentido, propriedade);
     }
 
     @Transactional(readOnly = true)

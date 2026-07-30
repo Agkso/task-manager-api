@@ -2,6 +2,7 @@ package com.taskmanager.task;
 
 import com.taskmanager.task.enums.Prioridade;
 import com.taskmanager.task.enums.StatusTarefa;
+import jakarta.persistence.criteria.Expression;
 import jakarta.persistence.criteria.JoinType;
 import java.time.LocalDateTime;
 import org.springframework.data.jpa.domain.Specification;
@@ -23,16 +24,40 @@ public final class TarefaSpecifications {
      * e to-one (ManyToOne) - nao ha risco de multiplicar linhas como
      * haveria com uma colecao (OneToMany).
      *
-     * O guard de resultType e defensivo: fetch join nao e permitido em
-     * queries de COUNT. Hoje listar() so chama findAll(spec) sem Pageable,
-     * entao nao ha count query - mas se isso mudar no futuro, essa
-     * specification nao quebra a query de contagem.
+     * O guard de resultType e necessario de verdade agora que listar() usa
+     * findAll(spec, Pageable): Pageable gera uma query de COUNT separada
+     * (resultType Long) alem da query de conteudo, e fetch join nao e
+     * permitido em query de COUNT.
      */
     public static Specification<Tarefa> comResponsavelCarregado() {
         return (root, query, cb) -> {
             if (Long.class != query.getResultType() && long.class != query.getResultType()) {
                 root.fetch("responsavel", JoinType.LEFT);
             }
+            return cb.conjunction();
+        };
+    }
+
+    /**
+     * Ordenacao por prioridade nao da pra expressar com Sort.by(...) comum
+     * (a ordem alfabetica do enum nao e a ordem de severidade) nem com
+     * JpaSort.unsafe() - essa API so funciona em queries derivadas por nome
+     * de metodo, que geram JPQL por concatenacao de string. Specification
+     * usa Criteria API, que resolve Sort via PropertyPath (precisa ser uma
+     * propriedade de verdade da entidade). A saida e montar o CASE WHEN
+     * direto no CriteriaBuilder e chamar query.orderBy(...) aqui dentro -
+     * funciona porque o Specification roda antes do Sort ser aplicado, e o
+     * service passa Sort.unsorted() nesse caso pra nao sobrescrever isso.
+     */
+    public static Specification<Tarefa> ordenarPorPrioridade(boolean descendente) {
+        return (root, query, cb) -> {
+            Expression<Integer> peso = cb.<Prioridade, Integer>selectCase(root.get("prioridade"))
+                    .when(Prioridade.LOW, 1)
+                    .when(Prioridade.MEDIUM, 2)
+                    .when(Prioridade.HIGH, 3)
+                    .when(Prioridade.CRITICAL, 4)
+                    .otherwise(0);
+            query.orderBy(descendente ? cb.desc(peso) : cb.asc(peso));
             return cb.conjunction();
         };
     }
