@@ -1,6 +1,7 @@
 package com.taskmanager.task;
 
 import com.taskmanager.common.dto.PaginaResposta;
+import com.taskmanager.config.ConfiguracaoCache;
 import com.taskmanager.exception.RecursoNaoEncontradoException;
 import com.taskmanager.exception.RegraNegocioException;
 import com.taskmanager.project.MembroProjeto;
@@ -17,10 +18,9 @@ import com.taskmanager.task.enums.StatusTarefa;
 import com.taskmanager.user.Usuario;
 import com.taskmanager.user.UsuarioRepository;
 import java.time.LocalDateTime;
-import java.util.EnumMap;
 import java.util.List;
-import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -44,6 +44,7 @@ public class TarefaService {
     private final UsuarioRepository usuarioRepository;
     private final RegrasTransicaoStatusTarefa regrasTransicaoStatusTarefa;
     private final ApplicationEventPublisher eventPublisher;
+    private final RelatorioTarefaService relatorioTarefaService;
 
     public TarefaService(
             TarefaRepository tarefaRepository,
@@ -52,7 +53,8 @@ public class TarefaService {
             ProjetoService projetoService,
             UsuarioRepository usuarioRepository,
             RegrasTransicaoStatusTarefa regrasTransicaoStatusTarefa,
-            ApplicationEventPublisher eventPublisher) {
+            ApplicationEventPublisher eventPublisher,
+            RelatorioTarefaService relatorioTarefaService) {
         this.tarefaRepository = tarefaRepository;
         this.historicoTarefaRepository = historicoTarefaRepository;
         this.membroProjetoService = membroProjetoService;
@@ -60,9 +62,11 @@ public class TarefaService {
         this.usuarioRepository = usuarioRepository;
         this.regrasTransicaoStatusTarefa = regrasTransicaoStatusTarefa;
         this.eventPublisher = eventPublisher;
+        this.relatorioTarefaService = relatorioTarefaService;
     }
 
     @Transactional
+    @CacheEvict(value = ConfiguracaoCache.CACHE_RELATORIO_TAREFAS, key = "#projetoId")
     public RespostaTarefa criar(Long projetoId, RequisicaoTarefa requisicao, Long solicitanteId) {
         membroProjetoService.obterMembro(projetoId, solicitanteId);
         Projeto projeto = projetoService.buscarPorId(projetoId);
@@ -90,6 +94,7 @@ public class TarefaService {
     }
 
     @Transactional
+    @CacheEvict(value = ConfiguracaoCache.CACHE_RELATORIO_TAREFAS, key = "#projetoId")
     public RespostaTarefa atualizar(
             Long projetoId, Long tarefaId, RequisicaoTarefa requisicao, Long solicitanteId) {
         membroProjetoService.obterMembro(projetoId, solicitanteId);
@@ -108,6 +113,7 @@ public class TarefaService {
     }
 
     @Transactional
+    @CacheEvict(value = ConfiguracaoCache.CACHE_RELATORIO_TAREFAS, key = "#projetoId")
     public void excluir(Long projetoId, Long tarefaId, Long solicitanteId) {
         membroProjetoService.obterMembro(projetoId, solicitanteId);
         Tarefa tarefa = buscarEntidade(projetoId, tarefaId);
@@ -116,6 +122,7 @@ public class TarefaService {
     }
 
     @Transactional
+    @CacheEvict(value = ConfiguracaoCache.CACHE_RELATORIO_TAREFAS, key = "#projetoId")
     public RespostaTarefa mudarStatus(
             Long projetoId, Long tarefaId, RequisicaoAtualizarStatus requisicao, Long solicitanteId) {
         MembroProjeto membro = membroProjetoService.obterMembro(projetoId, solicitanteId);
@@ -195,25 +202,19 @@ public class TarefaService {
         return Sort.by(sentido, propriedade);
     }
 
+    /**
+     * A agregacao em si (cacheada por projetoId) vive em RelatorioTarefaService
+     * - ver o javadoc la para o motivo de nao cachear este metodo diretamente
+     * (a checagem de membership precisa rodar sempre, mesmo em cache hit).
+     * O cache e evictado em toda escrita que afeta a contagem
+     * (criar/atualizar/excluir/mudarStatus - ver @CacheEvict nesses metodos);
+     * o TTL do Caffeine (ConfiguracaoCache) e so uma rede de seguranca, nao a
+     * garantia primaria de consistencia.
+     */
     @Transactional(readOnly = true)
     public RespostaRelatorio gerarRelatorio(Long projetoId, Long solicitanteId) {
         membroProjetoService.obterMembro(projetoId, solicitanteId);
-
-        Map<StatusTarefa, Long> porStatus = new EnumMap<>(StatusTarefa.class);
-        for (StatusTarefa statusTarefa : StatusTarefa.values()) {
-            porStatus.put(statusTarefa, 0L);
-        }
-        tarefaRepository.contarPorStatus(projetoId).forEach(c -> porStatus.put(c.getStatus(), c.getTotal()));
-
-        Map<Prioridade, Long> porPrioridade = new EnumMap<>(Prioridade.class);
-        for (Prioridade prioridadeValor : Prioridade.values()) {
-            porPrioridade.put(prioridadeValor, 0L);
-        }
-        tarefaRepository
-                .contarPorPrioridade(projetoId)
-                .forEach(c -> porPrioridade.put(c.getPrioridade(), c.getTotal()));
-
-        return new RespostaRelatorio(porStatus, porPrioridade);
+        return relatorioTarefaService.gerar(projetoId);
     }
 
     @Transactional(readOnly = true)

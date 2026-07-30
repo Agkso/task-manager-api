@@ -56,6 +56,9 @@ class TarefaServiceTest {
     @Mock
     private ApplicationEventPublisher eventPublisher;
 
+    @Mock
+    private RelatorioTarefaService relatorioTarefaService;
+
     private TarefaService tarefaService;
 
     private static final Long PROJETO_ID = 1L;
@@ -72,7 +75,8 @@ class TarefaServiceTest {
                 projetoService,
                 usuarioRepository,
                 new RegrasTransicaoStatusTarefa(),
-                eventPublisher);
+                eventPublisher,
+                relatorioTarefaService);
     }
 
     private Usuario usuario(Long id) {
