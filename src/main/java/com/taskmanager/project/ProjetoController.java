@@ -7,6 +7,7 @@ import com.taskmanager.project.dto.RespostaProjeto;
 import com.taskmanager.security.UsuarioAutenticado;
 import jakarta.validation.Valid;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -21,15 +22,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/projetos")
+@RequiredArgsConstructor
 public class ProjetoController {
 
     private final ProjetoService projetoService;
     private final MembroProjetoService membroProjetoService;
-
-    public ProjetoController(ProjetoService projetoService, MembroProjetoService membroProjetoService) {
-        this.projetoService = projetoService;
-        this.membroProjetoService = membroProjetoService;
-    }
 
     @PostMapping
     public ResponseEntity<RespostaProjeto> criar(

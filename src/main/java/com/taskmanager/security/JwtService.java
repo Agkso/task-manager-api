@@ -4,25 +4,39 @@ import com.taskmanager.user.Usuario;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
 import java.util.function.Function;
 import javax.crypto.SecretKey;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+/**
+ * `segredo` e' injetado como String bruta (config), `chave` e' derivada dela
+ * - por isso nao da pra injetar `chave` diretamente via @RequiredArgsConstructor
+ * (nao e' um valor de config nem um bean, e' um calculo). @PostConstruct roda
+ * uma vez, depois que o Lombok popula `segredo` no construtor, e monta a
+ * SecretKey - assim `Keys.hmacShaKeyFor(...)` nao repete a cada assinatura/
+ * verificacao de token.
+ */
 @Service
+@RequiredArgsConstructor
 public class JwtService {
 
-    private final SecretKey chave;
+    @Value("${app.jwt.secret}")
+    private final String segredo;
+
+    @Value("${app.jwt.expiration-minutes}")
     private final long expiracaoMinutos;
 
-    public JwtService(
-            @Value("${app.jwt.secret}") String segredo,
-            @Value("${app.jwt.expiration-minutes}") long expiracaoMinutos) {
+    private SecretKey chave;
+
+    @PostConstruct
+    void inicializarChave() {
         this.chave = Keys.hmacShaKeyFor(segredo.getBytes(StandardCharsets.UTF_8));
-        this.expiracaoMinutos = expiracaoMinutos;
     }
 
     public String gerarToken(Usuario usuario) {

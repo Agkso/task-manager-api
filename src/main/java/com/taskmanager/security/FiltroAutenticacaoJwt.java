@@ -6,6 +6,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -18,17 +19,13 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class FiltroAutenticacaoJwt extends OncePerRequestFilter {
 
     private static final String PREFIXO_BEARER = "Bearer ";
 
     private final JwtService jwtService;
     private final UsuarioDetailsService usuarioDetailsService;
-
-    public FiltroAutenticacaoJwt(JwtService jwtService, UsuarioDetailsService usuarioDetailsService) {
-        this.jwtService = jwtService;
-        this.usuarioDetailsService = usuarioDetailsService;
-    }
 
     @Override
     protected void doFilterInternal(

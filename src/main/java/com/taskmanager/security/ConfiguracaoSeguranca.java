@@ -1,5 +1,6 @@
 package com.taskmanager.security;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -15,6 +16,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor
 public class ConfiguracaoSeguranca {
 
     private static final String[] ROTAS_PUBLICAS = {
@@ -24,15 +26,6 @@ public class ConfiguracaoSeguranca {
     private final FiltroAutenticacaoJwt filtroAutenticacaoJwt;
     private final UsuarioDetailsService usuarioDetailsService;
     private final PontoEntradaNaoAutenticado pontoEntradaNaoAutenticado;
-
-    public ConfiguracaoSeguranca(
-            FiltroAutenticacaoJwt filtroAutenticacaoJwt,
-            UsuarioDetailsService usuarioDetailsService,
-            PontoEntradaNaoAutenticado pontoEntradaNaoAutenticado) {
-        this.filtroAutenticacaoJwt = filtroAutenticacaoJwt;
-        this.usuarioDetailsService = usuarioDetailsService;
-        this.pontoEntradaNaoAutenticado = pontoEntradaNaoAutenticado;
-    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {

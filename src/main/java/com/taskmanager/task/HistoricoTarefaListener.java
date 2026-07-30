@@ -3,6 +3,7 @@ package com.taskmanager.task;
 import com.taskmanager.user.Usuario;
 import com.taskmanager.user.UsuarioRepository;
 import java.time.LocalDateTime;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -28,20 +29,12 @@ import org.springframework.transaction.event.TransactionalEventListener;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class HistoricoTarefaListener {
 
     private final HistoricoTarefaRepository historicoTarefaRepository;
     private final TarefaRepository tarefaRepository;
     private final UsuarioRepository usuarioRepository;
-
-    public HistoricoTarefaListener(
-            HistoricoTarefaRepository historicoTarefaRepository,
-            TarefaRepository tarefaRepository,
-            UsuarioRepository usuarioRepository) {
-        this.historicoTarefaRepository = historicoTarefaRepository;
-        this.tarefaRepository = tarefaRepository;
-        this.usuarioRepository = usuarioRepository;
-    }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)

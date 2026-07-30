@@ -4,6 +4,7 @@ import com.taskmanager.exception.RecursoNaoEncontradoException;
 import com.taskmanager.project.dto.RequisicaoProjeto;
 import com.taskmanager.user.Usuario;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -15,15 +16,11 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class ProjetoService {
 
     private final ProjetoRepository projetoRepository;
     private final MembroProjetoService membroProjetoService;
-
-    public ProjetoService(ProjetoRepository projetoRepository, MembroProjetoService membroProjetoService) {
-        this.projetoRepository = projetoRepository;
-        this.membroProjetoService = membroProjetoService;
-    }
 
     @Transactional
     public Projeto criar(RequisicaoProjeto requisicao, Usuario dono) {

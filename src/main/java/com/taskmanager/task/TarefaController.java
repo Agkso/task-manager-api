@@ -14,6 +14,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import java.time.LocalDateTime;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -33,13 +34,10 @@ import org.springframework.web.bind.annotation.RestController;
 @Validated
 @RestController
 @RequestMapping("/api/projetos/{projetoId}/tarefas")
+@RequiredArgsConstructor
 public class TarefaController {
 
     private final TarefaService tarefaService;
-
-    public TarefaController(TarefaService tarefaService) {
-        this.tarefaService = tarefaService;
-    }
 
     @PostMapping
     public ResponseEntity<RespostaTarefa> criar(
