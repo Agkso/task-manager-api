@@ -4,6 +4,7 @@ import com.taskmanager.common.dto.PaginaResposta;
 import com.taskmanager.security.UsuarioAutenticado;
 import com.taskmanager.task.dto.RequisicaoAtualizarStatus;
 import com.taskmanager.task.dto.RequisicaoTarefa;
+import com.taskmanager.task.dto.RespostaHistoricoTarefa;
 import com.taskmanager.task.dto.RespostaRelatorio;
 import com.taskmanager.task.dto.RespostaTarefa;
 import com.taskmanager.task.enums.Prioridade;
@@ -12,6 +13,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import java.time.LocalDateTime;
+import java.util.List;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -93,6 +95,14 @@ public class TarefaController {
             @PathVariable Long tarefaId,
             @AuthenticationPrincipal UsuarioAutenticado principal) {
         return tarefaService.buscarPorId(projetoId, tarefaId, principal.getUsuarioId());
+    }
+
+    @GetMapping("/{tarefaId}/historico")
+    public List<RespostaHistoricoTarefa> historico(
+            @PathVariable Long projetoId,
+            @PathVariable Long tarefaId,
+            @AuthenticationPrincipal UsuarioAutenticado principal) {
+        return tarefaService.buscarHistorico(projetoId, tarefaId, principal.getUsuarioId());
     }
 
     @PutMapping("/{tarefaId}")

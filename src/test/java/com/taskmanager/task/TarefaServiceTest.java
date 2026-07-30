@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 
 /**
@@ -41,6 +42,9 @@ class TarefaServiceTest {
     private TarefaRepository tarefaRepository;
 
     @Mock
+    private HistoricoTarefaRepository historicoTarefaRepository;
+
+    @Mock
     private MembroProjetoService membroProjetoService;
 
     @Mock
@@ -48,6 +52,9 @@ class TarefaServiceTest {
 
     @Mock
     private UsuarioRepository usuarioRepository;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private TarefaService tarefaService;
 
@@ -60,10 +67,12 @@ class TarefaServiceTest {
     void montarService() {
         tarefaService = new TarefaService(
                 tarefaRepository,
+                historicoTarefaRepository,
                 membroProjetoService,
                 projetoService,
                 usuarioRepository,
-                new RegrasTransicaoStatusTarefa());
+                new RegrasTransicaoStatusTarefa(),
+                eventPublisher);
     }
 
     private Usuario usuario(Long id) {

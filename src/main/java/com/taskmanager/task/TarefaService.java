@@ -9,6 +9,7 @@ import com.taskmanager.project.Projeto;
 import com.taskmanager.project.ProjetoService;
 import com.taskmanager.task.dto.RequisicaoAtualizarStatus;
 import com.taskmanager.task.dto.RequisicaoTarefa;
+import com.taskmanager.task.dto.RespostaHistoricoTarefa;
 import com.taskmanager.task.dto.RespostaRelatorio;
 import com.taskmanager.task.dto.RespostaTarefa;
 import com.taskmanager.task.enums.Prioridade;
@@ -20,6 +21,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -36,22 +38,28 @@ public class TarefaService {
     private static final int TAMANHO_PAGINA_MAXIMO = 100;
 
     private final TarefaRepository tarefaRepository;
+    private final HistoricoTarefaRepository historicoTarefaRepository;
     private final MembroProjetoService membroProjetoService;
     private final ProjetoService projetoService;
     private final UsuarioRepository usuarioRepository;
     private final RegrasTransicaoStatusTarefa regrasTransicaoStatusTarefa;
+    private final ApplicationEventPublisher eventPublisher;
 
     public TarefaService(
             TarefaRepository tarefaRepository,
+            HistoricoTarefaRepository historicoTarefaRepository,
             MembroProjetoService membroProjetoService,
             ProjetoService projetoService,
             UsuarioRepository usuarioRepository,
-            RegrasTransicaoStatusTarefa regrasTransicaoStatusTarefa) {
+            RegrasTransicaoStatusTarefa regrasTransicaoStatusTarefa,
+            ApplicationEventPublisher eventPublisher) {
         this.tarefaRepository = tarefaRepository;
+        this.historicoTarefaRepository = historicoTarefaRepository;
         this.membroProjetoService = membroProjetoService;
         this.projetoService = projetoService;
         this.usuarioRepository = usuarioRepository;
         this.regrasTransicaoStatusTarefa = regrasTransicaoStatusTarefa;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -123,6 +131,8 @@ public class TarefaService {
 
         tarefa.setStatus(requisicao.status());
         RespostaTarefa resposta = RespostaTarefa.de(tarefaRepository.save(tarefa));
+        eventPublisher.publishEvent(
+                new TarefaStatusAlteradoEvent(tarefaId, solicitanteId, statusAnterior, requisicao.status()));
         log.info(
                 "Tarefa {} mudou de status {} para {} (solicitado por usuario {})",
                 tarefaId,
@@ -204,6 +214,15 @@ public class TarefaService {
                 .forEach(c -> porPrioridade.put(c.getPrioridade(), c.getTotal()));
 
         return new RespostaRelatorio(porStatus, porPrioridade);
+    }
+
+    @Transactional(readOnly = true)
+    public List<RespostaHistoricoTarefa> buscarHistorico(Long projetoId, Long tarefaId, Long solicitanteId) {
+        membroProjetoService.obterMembro(projetoId, solicitanteId);
+        buscarEntidade(projetoId, tarefaId);
+        return historicoTarefaRepository.findByTarefaIdOrderByAlteradoEmDesc(tarefaId).stream()
+                .map(RespostaHistoricoTarefa::de)
+                .toList();
     }
 
     private Tarefa buscarEntidade(Long projetoId, Long tarefaId) {
