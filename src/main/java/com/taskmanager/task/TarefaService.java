@@ -27,6 +27,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class TarefaService {
 
+    private static final int TAMANHO_PAGINA_PADRAO = 20;
+    private static final int TAMANHO_PAGINA_MAXIMO = 100;
+
     private final TarefaRepository tarefaRepository;
     private final MembroProjetoService membroProjetoService;
     private final ProjetoService projetoService;
@@ -136,13 +139,14 @@ public class TarefaService {
                 .and(TarefaSpecifications.comResponsavel(responsavelId))
                 .and(TarefaSpecifications.comPrazoDesde(prazoDesde))
                 .and(TarefaSpecifications.comPrazoAte(prazoAte))
-                .and(TarefaSpecifications.comTextoEm(texto));
+                .and(TarefaSpecifications.comTextoEm(texto))
+                .and(TarefaSpecifications.comResponsavelCarregado());
 
         List<Tarefa> tarefas = tarefaRepository.findAll(spec);
         tarefas.sort(TarefaOrdenador.comparador(ordenarPor, direcao));
 
         int paginaSegura = Math.max(pagina, 0);
-        int tamanhoSeguro = tamanho <= 0 ? 20 : tamanho;
+        int tamanhoSeguro = tamanho <= 0 ? TAMANHO_PAGINA_PADRAO : Math.min(tamanho, TAMANHO_PAGINA_MAXIMO);
         int totalElementos = tarefas.size();
         int totalPaginas = (int) Math.ceil(totalElementos / (double) tamanhoSeguro);
         int inicio = Math.min(paginaSegura * tamanhoSeguro, totalElementos);

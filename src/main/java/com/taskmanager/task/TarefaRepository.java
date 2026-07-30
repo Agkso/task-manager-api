@@ -3,12 +3,19 @@ package com.taskmanager.task;
 import com.taskmanager.task.enums.Prioridade;
 import com.taskmanager.task.enums.StatusTarefa;
 import java.util.List;
+import java.util.Optional;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface TarefaRepository extends JpaRepository<Tarefa, Long>, JpaSpecificationExecutor<Tarefa> {
+
+    // evita lazy load de responsavel/projeto (ambos @ManyToOne LAZY) ao montar RespostaTarefa
+    @EntityGraph(attributePaths = {"responsavel", "projeto"})
+    @Override
+    Optional<Tarefa> findById(Long id);
 
     // sustenta a regra de WIP: no maximo 5 tarefas IN_PROGRESS por responsavel
     long countByResponsavelIdAndStatus(Long responsavelId, StatusTarefa status);

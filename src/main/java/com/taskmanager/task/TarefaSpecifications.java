@@ -2,6 +2,7 @@ package com.taskmanager.task;
 
 import com.taskmanager.task.enums.Prioridade;
 import com.taskmanager.task.enums.StatusTarefa;
+import jakarta.persistence.criteria.JoinType;
 import java.time.LocalDateTime;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -11,6 +12,29 @@ public final class TarefaSpecifications {
 
     public static Specification<Tarefa> doProjeto(Long projetoId) {
         return (root, query, cb) -> cb.equal(root.get("projeto").get("id"), projetoId);
+    }
+
+    /**
+     * Fetch join em responsavel: sem isso, listar tarefas com responsavel
+     * definido gera 1 SELECT extra por linha (N+1) na hora de montar
+     * RespostaTarefa, ja que Tarefa.responsavel e @ManyToOne(LAZY) e
+     * findAll(Specification) nao aceita @EntityGraph como os metodos
+     * derivados aceitam. So e seguro aplicar fetch join porque responsavel
+     * e to-one (ManyToOne) - nao ha risco de multiplicar linhas como
+     * haveria com uma colecao (OneToMany).
+     *
+     * O guard de resultType e defensivo: fetch join nao e permitido em
+     * queries de COUNT. Hoje listar() so chama findAll(spec) sem Pageable,
+     * entao nao ha count query - mas se isso mudar no futuro, essa
+     * specification nao quebra a query de contagem.
+     */
+    public static Specification<Tarefa> comResponsavelCarregado() {
+        return (root, query, cb) -> {
+            if (Long.class != query.getResultType() && long.class != query.getResultType()) {
+                root.fetch("responsavel", JoinType.LEFT);
+            }
+            return cb.conjunction();
+        };
     }
 
     public static Specification<Tarefa> comStatus(StatusTarefa status) {
