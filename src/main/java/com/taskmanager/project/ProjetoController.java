@@ -24,9 +24,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProjetoController {
 
     private final ProjetoService projetoService;
+    private final MembroProjetoService membroProjetoService;
 
-    public ProjetoController(ProjetoService projetoService) {
+    public ProjetoController(ProjetoService projetoService, MembroProjetoService membroProjetoService) {
         this.projetoService = projetoService;
+        this.membroProjetoService = membroProjetoService;
     }
 
     @PostMapping
@@ -45,7 +47,7 @@ public class ProjetoController {
 
     @GetMapping("/{id}")
     public RespostaProjeto buscar(@PathVariable Long id, @AuthenticationPrincipal UsuarioAutenticado principal) {
-        projetoService.obterMembro(id, principal.getUsuarioId());
+        membroProjetoService.obterMembro(id, principal.getUsuarioId());
         return RespostaProjeto.de(projetoService.buscarPorId(id));
     }
 
@@ -66,7 +68,7 @@ public class ProjetoController {
     @GetMapping("/{id}/membros")
     public List<RespostaMembro> listarMembros(
             @PathVariable Long id, @AuthenticationPrincipal UsuarioAutenticado principal) {
-        return projetoService.listarMembros(id, principal.getUsuarioId()).stream()
+        return membroProjetoService.listar(id, principal.getUsuarioId()).stream()
                 .map(RespostaMembro::de)
                 .toList();
     }
@@ -76,7 +78,7 @@ public class ProjetoController {
             @PathVariable Long id,
             @Valid @RequestBody RequisicaoAdicionarMembro requisicao,
             @AuthenticationPrincipal UsuarioAutenticado principal) {
-        var membro = projetoService.adicionarMembro(id, requisicao, principal.getUsuarioId());
+        var membro = membroProjetoService.adicionar(id, requisicao, principal.getUsuarioId());
         return ResponseEntity.status(HttpStatus.CREATED).body(RespostaMembro.de(membro));
     }
 
@@ -85,7 +87,7 @@ public class ProjetoController {
             @PathVariable Long id,
             @PathVariable Long usuarioId,
             @AuthenticationPrincipal UsuarioAutenticado principal) {
-        projetoService.removerMembro(id, usuarioId, principal.getUsuarioId());
+        membroProjetoService.remover(id, usuarioId, principal.getUsuarioId());
         return ResponseEntity.noContent().build();
     }
 }
