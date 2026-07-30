@@ -21,6 +21,11 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * Espaco de trabalho que agrupa tarefas e membros. O dono e sempre criado
+ * como membro ADMIN (ver MembroProjetoService.criarComoAdmin) e nao pode
+ * ser removido da lista de membros.
+ */
 @Entity
 @Table(name = "projetos")
 @Getter

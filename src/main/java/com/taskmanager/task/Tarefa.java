@@ -23,6 +23,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/** Unidade de trabalho de um projeto. Sempre nasce com status {@link StatusTarefa#TODO}. */
 @Entity
 @Table(name = "tarefas")
 @Getter

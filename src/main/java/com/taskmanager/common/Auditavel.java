@@ -9,6 +9,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+/** Superclasse para entidades que sao editadas ao longo do tempo, preenchendo criadoEm/atualizadoEm via auditoria do Spring Data. */
 @Getter
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener.class)

@@ -21,6 +21,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * Associacao entre {@link Usuario} e {@link Projeto}, com o {@link Papel}
+ * que define o que o usuario pode fazer nesse projeto. A constraint unica
+ * (projeto_id, usuario_id) garante no banco que um usuario nao vira membro
+ * duas vezes do mesmo projeto.
+ */
 @Entity
 @Table(
         name = "membros_projeto",

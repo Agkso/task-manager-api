@@ -13,6 +13,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/** Conta de usuario da aplicacao. {@code senha} guarda o hash BCrypt, nunca a senha em texto puro. */
 @Entity
 @Table(name = "usuarios")
 @Getter
