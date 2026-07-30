@@ -5,9 +5,9 @@ import com.taskmanager.exception.RecursoNaoEncontradoException;
 import com.taskmanager.exception.RegraNegocioException;
 import com.taskmanager.project.MembroProjeto;
 import com.taskmanager.project.MembroProjetoRepository;
+import com.taskmanager.project.MembroProjetoService;
 import com.taskmanager.project.Projeto;
 import com.taskmanager.project.ProjetoService;
-import com.taskmanager.project.enums.Papel;
 import com.taskmanager.task.dto.RequisicaoAtualizarStatus;
 import com.taskmanager.task.dto.RequisicaoTarefa;
 import com.taskmanager.task.dto.RespostaRelatorio;
@@ -17,39 +17,41 @@ import com.taskmanager.task.enums.StatusTarefa;
 import com.taskmanager.user.Usuario;
 import com.taskmanager.user.UsuarioRepository;
 import java.time.LocalDateTime;
-import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class TarefaService {
 
-    private static final int WIP_LIMITE_IN_PROGRESS = 5;
-
     private final TarefaRepository tarefaRepository;
+    private final MembroProjetoService membroProjetoService;
     private final ProjetoService projetoService;
     private final MembroProjetoRepository membroProjetoRepository;
     private final UsuarioRepository usuarioRepository;
+    private final RegrasTransicaoStatusTarefa regrasTransicaoStatusTarefa;
 
     public TarefaService(
             TarefaRepository tarefaRepository,
+            MembroProjetoService membroProjetoService,
             ProjetoService projetoService,
             MembroProjetoRepository membroProjetoRepository,
-            UsuarioRepository usuarioRepository) {
+            UsuarioRepository usuarioRepository,
+            RegrasTransicaoStatusTarefa regrasTransicaoStatusTarefa) {
         this.tarefaRepository = tarefaRepository;
+        this.membroProjetoService = membroProjetoService;
         this.projetoService = projetoService;
         this.membroProjetoRepository = membroProjetoRepository;
         this.usuarioRepository = usuarioRepository;
+        this.regrasTransicaoStatusTarefa = regrasTransicaoStatusTarefa;
     }
 
     @Transactional
     public RespostaTarefa criar(Long projetoId, RequisicaoTarefa requisicao, Long solicitanteId) {
-        projetoService.obterMembro(projetoId, solicitanteId);
+        membroProjetoService.obterMembro(projetoId, solicitanteId);
         Projeto projeto = projetoService.buscarPorId(projetoId);
         Usuario responsavel = resolverResponsavel(projetoId, requisicao.responsavelId());
 
@@ -68,14 +70,14 @@ public class TarefaService {
 
     @Transactional(readOnly = true)
     public RespostaTarefa buscarPorId(Long projetoId, Long tarefaId, Long solicitanteId) {
-        projetoService.obterMembro(projetoId, solicitanteId);
+        membroProjetoService.obterMembro(projetoId, solicitanteId);
         return RespostaTarefa.de(buscarEntidade(projetoId, tarefaId));
     }
 
     @Transactional
     public RespostaTarefa atualizar(
             Long projetoId, Long tarefaId, RequisicaoTarefa requisicao, Long solicitanteId) {
-        projetoService.obterMembro(projetoId, solicitanteId);
+        membroProjetoService.obterMembro(projetoId, solicitanteId);
         Tarefa tarefa = buscarEntidade(projetoId, tarefaId);
         Usuario responsavel = resolverResponsavel(projetoId, requisicao.responsavelId());
 
@@ -90,7 +92,7 @@ public class TarefaService {
 
     @Transactional
     public void excluir(Long projetoId, Long tarefaId, Long solicitanteId) {
-        projetoService.obterMembro(projetoId, solicitanteId);
+        membroProjetoService.obterMembro(projetoId, solicitanteId);
         Tarefa tarefa = buscarEntidade(projetoId, tarefaId);
         tarefaRepository.delete(tarefa);
     }
@@ -98,38 +100,17 @@ public class TarefaService {
     @Transactional
     public RespostaTarefa mudarStatus(
             Long projetoId, Long tarefaId, RequisicaoAtualizarStatus requisicao, Long solicitanteId) {
-        MembroProjeto membro = projetoService.obterMembro(projetoId, solicitanteId);
+        MembroProjeto membro = membroProjetoService.obterMembro(projetoId, solicitanteId);
         Tarefa tarefa = buscarEntidade(projetoId, tarefaId);
 
-        StatusTarefa statusAtual = tarefa.getStatus();
-        StatusTarefa novoStatus = requisicao.status();
+        long tarefasEmAndamento = tarefa.getResponsavel() == null
+                ? 0
+                : tarefaRepository.countByResponsavelIdAndStatus(
+                        tarefa.getResponsavel().getId(), StatusTarefa.IN_PROGRESS);
 
-        if (statusAtual == StatusTarefa.DONE && novoStatus == StatusTarefa.TODO) {
-            throw new RegraNegocioException(
-                    "Uma tarefa concluida (DONE) nao pode voltar para TODO, apenas para IN_PROGRESS");
-        }
+        regrasTransicaoStatusTarefa.validar(tarefa, requisicao.status(), membro.getPapel(), tarefasEmAndamento);
 
-        if (novoStatus == StatusTarefa.DONE
-                && tarefa.getPrioridade() == Prioridade.CRITICAL
-                && membro.getPapel() != Papel.ADMIN) {
-            throw new AccessDeniedException(
-                    "Apenas o ADMIN do projeto pode concluir uma tarefa de prioridade CRITICAL");
-        }
-
-        if (novoStatus == StatusTarefa.IN_PROGRESS && statusAtual != StatusTarefa.IN_PROGRESS) {
-            Usuario responsavel = tarefa.getResponsavel();
-            if (responsavel != null) {
-                long emAndamento =
-                        tarefaRepository.countByResponsavelIdAndStatus(responsavel.getId(), StatusTarefa.IN_PROGRESS);
-                if (emAndamento >= WIP_LIMITE_IN_PROGRESS) {
-                    throw new RegraNegocioException("Limite de "
-                            + WIP_LIMITE_IN_PROGRESS
-                            + " tarefas em andamento (IN_PROGRESS) atingido para este responsavel");
-                }
-            }
-        }
-
-        tarefa.setStatus(novoStatus);
+        tarefa.setStatus(requisicao.status());
         return RespostaTarefa.de(tarefaRepository.save(tarefa));
     }
 
@@ -147,7 +128,7 @@ public class TarefaService {
             String direcao,
             int pagina,
             int tamanho) {
-        projetoService.obterMembro(projetoId, solicitanteId);
+        membroProjetoService.obterMembro(projetoId, solicitanteId);
 
         Specification<Tarefa> spec = Specification.where(TarefaSpecifications.doProjeto(projetoId))
                 .and(TarefaSpecifications.comStatus(status))
@@ -158,7 +139,7 @@ public class TarefaService {
                 .and(TarefaSpecifications.comTextoEm(texto));
 
         List<Tarefa> tarefas = tarefaRepository.findAll(spec);
-        tarefas.sort(comparadorDe(ordenarPor, direcao));
+        tarefas.sort(TarefaOrdenador.comparador(ordenarPor, direcao));
 
         int paginaSegura = Math.max(pagina, 0);
         int tamanhoSeguro = tamanho <= 0 ? 20 : tamanho;
@@ -175,17 +156,17 @@ public class TarefaService {
 
     @Transactional(readOnly = true)
     public RespostaRelatorio gerarRelatorio(Long projetoId, Long solicitanteId) {
-        projetoService.obterMembro(projetoId, solicitanteId);
+        membroProjetoService.obterMembro(projetoId, solicitanteId);
 
         Map<StatusTarefa, Long> porStatus = new EnumMap<>(StatusTarefa.class);
-        for (StatusTarefa status : StatusTarefa.values()) {
-            porStatus.put(status, 0L);
+        for (StatusTarefa statusTarefa : StatusTarefa.values()) {
+            porStatus.put(statusTarefa, 0L);
         }
         tarefaRepository.contarPorStatus(projetoId).forEach(c -> porStatus.put(c.getStatus(), c.getTotal()));
 
         Map<Prioridade, Long> porPrioridade = new EnumMap<>(Prioridade.class);
-        for (Prioridade prioridade : Prioridade.values()) {
-            porPrioridade.put(prioridade, 0L);
+        for (Prioridade prioridadeValor : Prioridade.values()) {
+            porPrioridade.put(prioridadeValor, 0L);
         }
         tarefaRepository
                 .contarPorPrioridade(projetoId)
@@ -214,22 +195,5 @@ public class TarefaService {
         return usuarioRepository
                 .findById(responsavelId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Usuario nao encontrado: " + responsavelId));
-    }
-
-    /**
-     * Ordenacao por prioridade usa o ordinal do enum (LOW=0 ... CRITICAL=3),
-     * que so funciona porque Prioridade foi declarado nessa ordem crescente
-     * de severidade - se a ordem de declaracao mudar, isso quebra.
-     */
-    private Comparator<Tarefa> comparadorDe(String ordenarPor, String direcao) {
-        Comparator<Tarefa> comparador =
-                switch (ordenarPor == null ? "" : ordenarPor) {
-                    case "prioridade" -> Comparator.comparingInt(t -> t.getPrioridade().ordinal());
-                    case "prazo" -> Comparator.comparing(
-                            Tarefa::getPrazo, Comparator.nullsLast(Comparator.naturalOrder()));
-                    default -> Comparator.comparing(Tarefa::getCriadoEm);
-                };
-
-        return "desc".equalsIgnoreCase(direcao) ? comparador.reversed() : comparador;
     }
 }
