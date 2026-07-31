@@ -29,6 +29,14 @@ Rodar os testes (sobe um Postgres descartavel via Testcontainers, precisa do Doc
 ./mvnw test
 ```
 
+Alternativa sem Java/Maven instalado - stack inteira (Postgres + API) containerizada:
+
+```bash
+docker compose -f compose.full.yaml up --build   # API em localhost:8080
+```
+
+(`compose.yaml`, sem sufixo, continua sendo so o Postgres - e o arquivo que o `spring-boot-docker-compose` sobe sozinho quando voce roda `./mvnw spring-boot:run` direto na maquina.)
+
 ### Fluxo minimo pra testar na mao
 
 ```bash
@@ -61,12 +69,16 @@ com.taskmanager
 ├── task        Tarefa, task/usecase (uma classe por operacao: CriarTarefaUseCase,
 │               AtualizarTarefaUseCase, ExcluirTarefaUseCase, MudarStatusTarefaUseCase,
 │               ListarTarefasUseCase, BuscarTarefaUseCase, GerarRelatorioTarefaUseCase,
-│               BuscarHistoricoTarefaUseCase), RegrasTransicaoStatusTarefa (regra pura, sem
-│               dependencia de repositorio), TarefaHelper (busca de tarefa + resolucao de
-│               responsavel compartilhada entre use cases), TarefaMapper/HistoricoTarefaMapper
-│               (entidade -> DTO), TarefaSpecifications (filtros, busca, ordenacao),
+│               BuscarHistoricoTarefaUseCase, InscreverEventosTarefaUseCase),
+│               RegrasTransicaoStatusTarefa (regra pura, sem dependencia de repositorio),
+│               TarefaHelper (busca de tarefa + resolucao de responsavel compartilhada entre
+│               use cases), TarefaMapper/HistoricoTarefaMapper (entidade -> DTO),
+│               TarefaSpecifications (filtros, busca, ordenacao, exclui soft-deletadas),
 │               RelatorioTarefaService (agregacao cacheada), HistoricoTarefa/
-│               HistoricoTarefaListener (audit log via evento)
+│               HistoricoTarefaListener (historico de status via evento),
+│               TarefaEventoBroadcaster/TarefaEventoSseListener (board em tempo real via SSE)
+├── audit       LogAuditoria + AuditoriaListener (ciclo de vida de projeto/membro/tarefa/auth,
+│               via o mesmo padrao evento+listener do historico de tarefa)
 ├── common      Auditavel (criadoEm/atualizadoEm via JPA auditing) e PaginaResposta<T>
 ├── exception   excecoes de dominio + MensagensErro (textos de erro centralizados) +
 │               ManipuladorGlobalExcecoes (RFC 7807)
@@ -128,18 +140,33 @@ O token (`UsuarioAutenticado`) carrega so a identidade (email/id), com uma autho
 Textos como `"Projeto nao encontrado: "` ou `"Voce nao e membro deste projeto"` eram literais repetidos em varios services (cada excecao lancada com sua propria string). Uma classe `MensagensErro` com constantes e metodos estaticos parametrizados (`tarefaNaoEncontrada(id)`, `limiteDeTarefasEmAndamentoAtingido(limite)`) virou o unico lugar que escreve esses textos - evita divergencia entre copias e facilita achar/trocar uma mensagem sem grep em N arquivos.
 
 **Filtros de listagem agrupados em `RequisicaoFiltroTarefa` via `@ModelAttribute`.**
-`GET /tarefas` tinha 10 `@RequestParam` soltos no metodo do controller (status, prioridade, responsavelId, prazoDesde, prazoAte, busca, ordenarPor, direcao, pagina, tamanho). Viraram um `record` vinculado com `@ModelAttribute` - suportado como *constructor binding* desde o Spring Framework 6.1, entao nao exige o record ter setters nem construtor sem argumentos. Um construtor compacto assume os defaults que antes viviam em `@RequestParam(defaultValue = ...)`.
+`GET /tarefas` tinha 10 `@RequestParam` soltos no metodo do controller (status, prioridade, responsavelId, prazoDesde, prazoAte, busca, ordenarPor, direcao, pagina, tamanho). Viraram um `record` vinculado com `@ModelAttribute` - suportado como *constructor binding* desde o Spring Framework 6.1, entao nao exige o record ter setters nem construtor sem argumentos. Um construtor compacto assume os defaults que antes viviam em `@RequestParam(defaultValue = ...)`. Os campos `pagina`/`tamanho` sao `Integer` (boxed), nao `int`: quando o cliente nao manda o parametro, o Spring nao converte "ausente" pra um primitivo e a requisicao inteira falharia com 400 antes do construtor compacto rodar - só um teste de integração real (`GET /tarefas?status=X` sozinho, sem paginação) pegou isso.
+
+**Exclusao de `Projeto`/`Tarefa` e soft delete, nao `DELETE` fisico.**
+`excluidoEm` (nulo = ativo) e setado em vez de remover a linha - os repositorios expõem `findByIdAndExcluidoEmIsNull`/variantes e `TarefaSpecifications.naoExcluida()` filtra a listagem, entao um recurso excluido se comporta como inexistente em toda consulta. Motivo: preserva `historico_tarefa` (que tinha `ON DELETE CASCADE` em `tarefa_id` - um DELETE fisico apagava a propria auditoria da tarefa junto) e permite desfazer uma exclusao por engano. Deletar um projeto nao cascateia soft delete pras tarefas dele (o pacote `task` depende de `project`, nunca o contrario) - nao abre brecha de acesso porque todo endpoint de tarefa passa por `MembroProjetoService.obterMembro` primeiro, que ja nega acesso a um projeto excluido.
+
+**Board em tempo real via SSE (Server-Sent Events), nao WebSocket.**
+`GET /projetos/{id}/tarefas/eventos` mantem a conexao aberta e `TarefaEventoBroadcaster` reenvia pra todo inscrito do projeto quando `TarefaStatusAlteradoEvent` e publicado (mesmo evento que já alimenta `HistoricoTarefaListener` - so mais um listener reagindo, sem duplicar a logica de mudanca de status). SSE em vez de WebSocket porque o fluxo e unidirecional (servidor -> cliente); WebSocket exigiria lidar com upgrade de protocolo e canal bidirecional pra um caso que nao precisa disso. Limitacao real: registro em memoria (`ConcurrentHashMap`), so funciona com uma instancia da API - a mesma premissa do cache Caffeine (`ConfiguracaoCache`); com mais de uma instancia atras de um load balancer precisaria de um broker externo (Redis pub/sub, etc.). Outra pegadinha: `EventSource` do browser não manda headers customizados, entao `Authorization: Bearer` nao chega - o filtro JWT aceita o token via `?token=` como fallback so pra esse caso.
+
+**Log de auditoria via evento generico (`EventoAuditoria`), nao uma classe por acao.**
+`LogAuditoria` registra ciclo de vida de projeto/membro/tarefa e autenticacao (criar/atualizar/excluir projeto, adicionar/remover membro, criar/atualizar/excluir tarefa, registro, login) - mesmo padrao evento+listener (`AuditoriaListener`, `AFTER_COMMIT` + `REQUIRES_NEW`) do historico de tarefa. Nao duplica mudanca de status (isso já é o `HistoricoTarefa`, com mais detalhe - `statusAnterior`/`statusNovo`). Um evento generico (`acao`/`tipoEntidade` como enum, nao uma classe `ProjetoCriadoEvent`/`TarefaExcluidaEvent`/etc.) porque com ~10 pontos de publicacao, uma classe por acao seria muito boilerplate pra pouco ganho de tipagem. Consulta (`GET /projetos/{id}/auditoria`) e restrita ao ADMIN do projeto, mesma regra de `exigirAdmin`.
+
+**CORS explicito, nunca `*`.**
+Origem vem de config (`app.cors.allowed-origins`, default `localhost:3000`/`localhost:5173`) porque a API usa `Authorization: Bearer` com `allowCredentials(true)` - wildcard de origem e credenciais sao mutuamente exclusivos na spec de CORS, então nao daria pra usar `*` mesmo se quisesse.
 
 ## Testes
 
-- **Unitarios (Mockito)**: `MudarStatusTarefaUseCaseTest` cobre as 3 regras de negocio de status, `CriarTarefaUseCaseTest` cobre a validacao de responsavel, `RegistrarUsuarioUseCaseTest` cobre o caso de email duplicado. Priorizei os pontos onde um bug de logica passaria despercebido em teste manual e onde o enunciado exige explicitamente uma regra.
-- **Integracao (`@SpringBootTest` + Testcontainers)**: `FluxoCriticoIntegrationTest` sobe um Postgres real (nao H2) e roda o fluxo completo registrar → login → criar projeto → criar tarefa → mudar status → conferir relatorio, alem do caso de rota protegida sem token. Usar Postgres real aqui (em vez de H2) evita que o teste passe por causa de uma diferenca de dialeto que so apareceria em producao.
+- **Unitarios (Mockito)**: `MudarStatusTarefaUseCaseTest` cobre as 3 regras de negocio de status, `CriarTarefaUseCaseTest` cobre a validacao de responsavel, `RegistrarUsuarioUseCaseTest` cobre o caso de email duplicado, `LimpezaRefreshTokenJobTest` e `TarefaEventoBroadcasterTest` cobrem o job de limpeza e o registro/remoção de inscritos SSE isoladamente. Priorizei os pontos onde um bug de logica passaria despercebido em teste manual e onde o enunciado exige explicitamente uma regra.
+- **Integracao (`@SpringBootTest` + Testcontainers)**: `FluxoCriticoIntegrationTest` sobe um Postgres real (nao H2) e roda o fluxo completo registrar → login → criar projeto → criar tarefa → mudar status → conferir relatorio, alem do caso de rota protegida sem token; `ProjetoAutorizacaoIntegrationTest` cobre membership, autorizacao ADMIN vs MEMBER e soft delete de projeto ponta a ponta; `TarefaConsultaIntegrationTest` cobre listagem com filtro/paginação, exclusão (soft delete, some da listagem mas não conta mais pro limite de WIP), histórico e a conexão SSE (via header e via `?token=`); `RelatorioCacheIntegrationTest` confirma o comportamento do cache (hit/evict) via HTTP, algo que Mockito puro nao alcança porque `@Cacheable`/`@CacheEvict` dependem do proxy real do Spring; `AuditoriaIntegrationTest` confirma que `AuditoriaListener` grava e que só ADMIN consulta; `FiltroLimitacaoRequisicoesIntegrationTest` cobre o bloqueio por excesso de tentativas de login/registro. Usar Postgres real aqui (em vez de H2) evita que o teste passe por causa de uma diferenca de dialeto que so apareceria em producao.
 - Não persegui cobertura de 100% - o enunciado explicitamente não pede isso, e testar getters/setters ou DTOs (records) não agrega nada.
 
 ## O que eu faria diferente com mais tempo
 
-- **Refresh token**: hoje o JWT expira em 60 minutos sem renovacao; um fluxo de refresh token evitaria obrigar o usuario a logar de novo.
-- **Cache no relatorio/listagem**: o relatorio é lido com frequência e muda pouco; daria pra cachear por `projetoId` com invalidação no `save`/`delete` de `Tarefa` (Spring Cache + `@CacheEvict`). Não implementei porque, sem métricas reais de uso, adicionar cache é otimização prematura.
-- **Frontend**: React com um board simples (colunas por status, drag-and-drop) consumindo essa API - ficou fora por escopo/tempo, priorizei fechar os requisitos obrigatorios do backend primeiro.
-- **Rate limiting no login/registro** para mitigar força bruta - ok para um teste técnico, mas eu adicionaria antes de qualquer coisa perto de produção.
-- **Mais testes de integração**: hoje só o fluxo crítico tem cobertura de ponta a ponta; endpoints de projeto (membership, autorização ADMIN vs MEMBER) mereceriam o mesmo tratamento.
+Refresh token, cache do relatório, rate limiting no login/registro, CORS, segredos via env var, limpeza de refresh tokens, Actuator, CI, Dockerfile da API, mais testes de integração, soft delete e board em tempo real - tudo isso já estava listado aqui como pendência e foi implementado (ver seções acima). O que seguiria de fato:
+
+- **Frontend**: React com um board simples (colunas por status, drag-and-drop) consumindo essa API - é o próximo passo, ainda não iniciado. É o que vai validar de verdade o SSE de eventos e o CORS na prática.
+- **Broker externo pro SSE em múltiplas instâncias**: `TarefaEventoBroadcaster` guarda os emissores em memória, então só funciona com uma instância da API. Escalar horizontalmente exigiria Redis pub/sub (ou similar) pra um emissor conectado numa instância receber evento publicado em outra.
+- **Log de auditoria mais rico**: hoje `LogAuditoria` guarda ação/entidade/ator/quando, mas não o diff (o que mudou de fato num `PROJETO_ATUALIZADO`, por exemplo). Um `detalhe` estruturado (JSON com antes/depois) valeria a pena se a auditoria virar uma feature consultada de verdade, não só um registro de "aconteceu".
+- **Verificação de email**: registro aceita qualquer email sem confirmar posse dele. Ok pra teste técnico; produção pediria um fluxo de verificação antes de liberar login.
+- **Rate limiting além de `/api/auth/**`**: hoje só login/registro tem limite por IP. Endpoints autenticados de escrita (criar tarefa em massa, por exemplo) não têm proteção equivalente contra abuso de um usuário autenticado.
+- **Métricas de negócio no Actuator**: `/actuator/health`/`/info` estão expostos, mas nenhuma métrica customizada (Micrometer) foi adicionada - ex.: contagem de tarefas criadas por minuto, latência por endpoint segmentada por rota.
