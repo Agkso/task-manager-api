@@ -30,11 +30,9 @@ management:
     health:
       show-details: never
 
-# Defaults abaixo servem pra dev local/teste tecnico. Em qualquer ambiente real,
-# defina as env vars (DB_*, JWT_SECRET) - nunca suba um secret de verdade aqui.
 app:
   jwt:
-    secret: ${JWT_SECRET:change-this-secret-should-be-at-least-256-bits-long-for-hs256}
+    secret: ${JWT_SECRET:SECRET-REMOVIDO-DO-HISTORICO}
     expiration-minutes: ${JWT_EXPIRATION_MINUTES:60}
     refresh-expiration-days: ${JWT_REFRESH_EXPIRATION_DAYS:7}
     refresh-cleanup-retention-days: ${JWT_REFRESH_CLEANUP_RETENTION_DAYS:30}
