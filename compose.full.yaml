@@ -1,0 +1,37 @@
+# Stack completa (Postgres + API), pra rodar o projeto inteiro containerizado
+# sem precisar de Java/Maven na maquina: docker compose -f compose.full.yaml up --build
+#
+# Separado do compose.yaml de proposito: aquele e o que o
+# spring-boot-docker-compose sobe sozinho ao rodar `./mvnw spring-boot:run`
+# (so o Postgres) - colocar o servico da propria app no mesmo arquivo faria
+# esse mecanismo tentar gerenciar a aplicacao junto do banco, o que nao faz
+# sentido rodando via mvnw.
+services:
+  postgres:
+    image: 'postgres:16-alpine'
+    container_name: task-manager-postgres
+    environment:
+      - 'POSTGRES_DB=taskmanager'
+      - 'POSTGRES_USER=taskmanager'
+      - 'POSTGRES_PASSWORD=taskmanager'
+    ports:
+      - '5433:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U taskmanager']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    container_name: task-manager-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - 'DB_URL=jdbc:postgresql://postgres:5432/taskmanager'
+      - 'DB_USERNAME=taskmanager'
+      - 'DB_PASSWORD=taskmanager'
+      - 'JWT_SECRET=change-this-secret-should-be-at-least-256-bits-long-for-hs256'
+    ports:
+      - '8080:8080'
