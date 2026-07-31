@@ -38,6 +38,7 @@ public class ListarTarefasUseCase {
         boolean descendente = "desc".equalsIgnoreCase(filtro.direcao());
 
         Specification<Tarefa> spec = Specification.where(TarefaSpecifications.doProjeto(projetoId))
+                .and(TarefaSpecifications.naoExcluida())
                 .and(TarefaSpecifications.comStatus(filtro.status()))
                 .and(TarefaSpecifications.comPrioridade(filtro.prioridade()))
                 .and(TarefaSpecifications.comResponsavel(filtro.responsavelId()))

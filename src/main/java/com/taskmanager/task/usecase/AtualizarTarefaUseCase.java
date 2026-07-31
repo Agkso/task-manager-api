@@ -1,5 +1,8 @@
 package com.taskmanager.task.usecase;
 
+import com.taskmanager.audit.AcaoAuditoria;
+import com.taskmanager.audit.EventoAuditoria;
+import com.taskmanager.audit.TipoEntidadeAuditoria;
 import com.taskmanager.config.ConfiguracaoCache;
 import com.taskmanager.project.MembroProjetoService;
 import com.taskmanager.task.Tarefa;
@@ -12,6 +15,7 @@ import com.taskmanager.user.Usuario;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +29,7 @@ public class AtualizarTarefaUseCase {
     private final MembroProjetoService membroProjetoService;
     private final TarefaHelper tarefaHelper;
     private final TarefaMapper tarefaMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     @CacheEvict(value = ConfiguracaoCache.CACHE_RELATORIO_TAREFAS, key = "#projetoId")
@@ -41,6 +46,8 @@ public class AtualizarTarefaUseCase {
 
         RespostaTarefa resposta = tarefaMapper.paraResposta(tarefaRepository.save(tarefa));
         log.info("Tarefa {} atualizada por usuario {}", tarefaId, solicitanteId);
+        eventPublisher.publishEvent(EventoAuditoria.de(
+                AcaoAuditoria.TAREFA_ATUALIZADA, TipoEntidadeAuditoria.TAREFA, tarefaId, projetoId, solicitanteId));
         return resposta;
     }
 }

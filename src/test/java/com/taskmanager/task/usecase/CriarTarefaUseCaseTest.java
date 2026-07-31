@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class CriarTarefaUseCaseTest {
@@ -41,6 +42,9 @@ class CriarTarefaUseCaseTest {
     @Mock
     private UsuarioRepository usuarioRepository;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     private CriarTarefaUseCase criarTarefaUseCase;
 
     private static final Long PROJETO_ID = 1L;
@@ -51,7 +55,7 @@ class CriarTarefaUseCaseTest {
     void montarUseCase() {
         TarefaHelper tarefaHelper = new TarefaHelper(tarefaRepository, membroProjetoService, usuarioRepository);
         criarTarefaUseCase = new CriarTarefaUseCase(
-                tarefaRepository, membroProjetoService, projetoService, tarefaHelper, new TarefaMapper());
+                tarefaRepository, membroProjetoService, projetoService, tarefaHelper, new TarefaMapper(), eventPublisher);
     }
 
     private Usuario usuario(Long id) {

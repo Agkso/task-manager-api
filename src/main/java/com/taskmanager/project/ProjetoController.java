@@ -1,5 +1,8 @@
 package com.taskmanager.project;
 
+import com.taskmanager.audit.LogAuditoriaService;
+import com.taskmanager.audit.dto.RespostaLogAuditoria;
+import com.taskmanager.common.dto.PaginaResposta;
 import com.taskmanager.project.dto.RequisicaoAdicionarMembro;
 import com.taskmanager.project.dto.RequisicaoProjeto;
 import com.taskmanager.project.dto.RespostaMembro;
@@ -18,6 +21,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -27,6 +31,7 @@ public class ProjetoController {
 
     private final ProjetoService projetoService;
     private final MembroProjetoService membroProjetoService;
+    private final LogAuditoriaService logAuditoriaService;
     private final ProjetoMapper projetoMapper;
     private final MembroMapper membroMapper;
 
@@ -88,5 +93,15 @@ public class ProjetoController {
             @AuthenticationPrincipal UsuarioAutenticado principal) {
         membroProjetoService.remover(id, usuarioId, principal.getUsuarioId());
         return ResponseEntity.noContent().build();
+    }
+
+    /** So o ADMIN do projeto consulta - ver LogAuditoriaService.listar. */
+    @GetMapping("/{id}/auditoria")
+    public PaginaResposta<RespostaLogAuditoria> auditoria(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "0") int pagina,
+            @RequestParam(defaultValue = "20") int tamanho,
+            @AuthenticationPrincipal UsuarioAutenticado principal) {
+        return logAuditoriaService.listar(id, principal.getUsuarioId(), pagina, tamanho);
     }
 }

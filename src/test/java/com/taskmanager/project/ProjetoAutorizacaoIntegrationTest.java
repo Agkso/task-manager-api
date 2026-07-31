@@ -1,9 +1,11 @@
 package com.taskmanager.project;
 
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -189,5 +191,28 @@ class ProjetoAutorizacaoIntegrationTest {
 
         mockMvc.perform(delete("/api/projetos/{id}", projetoId).header("Authorization", "Bearer " + tokenDono))
                 .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void excluir_eSoftDelete_projetoSomeDaListaEBloqueiaAcessoAsTarefas() throws Exception {
+        String tokenDono = registrarEObterToken("Dono", "dono8@example.com");
+        long projetoId = criarProjeto(tokenDono, "Projeto 8");
+
+        mockMvc.perform(delete("/api/projetos/{id}", projetoId).header("Authorization", "Bearer " + tokenDono))
+                .andExpect(status().isNoContent());
+
+        // buscar() checa obterMembro antes de buscarPorId - mesmo comportamento de sempre pra
+        // "nao sou membro" (403), so que agora um projeto excluido cai no mesmo caminho
+        mockMvc.perform(get("/api/projetos/{id}", projetoId).header("Authorization", "Bearer " + tokenDono))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/projetos").header("Authorization", "Bearer " + tokenDono))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(0)));
+
+        // obterMembro nega acesso a um projeto excluido como se o solicitante nunca tivesse
+        // sido membro - as tarefas continuam no banco (nao cascateadas), mas inalcancaveis
+        mockMvc.perform(get("/api/projetos/{id}/tarefas", projetoId).header("Authorization", "Bearer " + tokenDono))
+                .andExpect(status().isForbidden());
     }
 }

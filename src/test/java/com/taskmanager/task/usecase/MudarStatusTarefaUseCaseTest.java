@@ -97,7 +97,7 @@ class MudarStatusTarefaUseCaseTest {
     @Test
     void executar_deveRejeitarVoltaDeDoneParaTodo() {
         when(membroProjetoService.obterMembro(PROJETO_ID, SOLICITANTE_ID)).thenReturn(membro(Papel.ADMIN));
-        when(tarefaRepository.findById(TAREFA_ID))
+        when(tarefaRepository.findByIdAndExcluidoEmIsNull(TAREFA_ID))
                 .thenReturn(Optional.of(tarefa(StatusTarefa.DONE, Prioridade.LOW, RESPONSAVEL_ID)));
 
         assertThatThrownBy(() -> mudarStatusTarefaUseCase.executar(
@@ -111,7 +111,7 @@ class MudarStatusTarefaUseCaseTest {
     @Test
     void executar_deveBloquearFechamentoDeCriticaPorMembroComum() {
         when(membroProjetoService.obterMembro(PROJETO_ID, SOLICITANTE_ID)).thenReturn(membro(Papel.MEMBER));
-        when(tarefaRepository.findById(TAREFA_ID))
+        when(tarefaRepository.findByIdAndExcluidoEmIsNull(TAREFA_ID))
                 .thenReturn(Optional.of(tarefa(StatusTarefa.IN_PROGRESS, Prioridade.CRITICAL, RESPONSAVEL_ID)));
 
         assertThatThrownBy(() -> mudarStatusTarefaUseCase.executar(
@@ -125,7 +125,7 @@ class MudarStatusTarefaUseCaseTest {
     void executar_devePermitirFechamentoDeCriticaPorAdmin() {
         when(membroProjetoService.obterMembro(PROJETO_ID, SOLICITANTE_ID)).thenReturn(membro(Papel.ADMIN));
         Tarefa critica = tarefa(StatusTarefa.IN_PROGRESS, Prioridade.CRITICAL, RESPONSAVEL_ID);
-        when(tarefaRepository.findById(TAREFA_ID)).thenReturn(Optional.of(critica));
+        when(tarefaRepository.findByIdAndExcluidoEmIsNull(TAREFA_ID)).thenReturn(Optional.of(critica));
         when(tarefaRepository.save(any(Tarefa.class))).thenAnswer(chamada -> chamada.getArgument(0));
 
         var resposta = mudarStatusTarefaUseCase.executar(
@@ -137,9 +137,9 @@ class MudarStatusTarefaUseCaseTest {
     @Test
     void executar_deveRejeitarQuandoResponsavelAtingiuLimiteDeWip() {
         when(membroProjetoService.obterMembro(PROJETO_ID, SOLICITANTE_ID)).thenReturn(membro(Papel.MEMBER));
-        when(tarefaRepository.findById(TAREFA_ID))
+        when(tarefaRepository.findByIdAndExcluidoEmIsNull(TAREFA_ID))
                 .thenReturn(Optional.of(tarefa(StatusTarefa.TODO, Prioridade.MEDIUM, RESPONSAVEL_ID)));
-        when(tarefaRepository.countByResponsavelIdAndStatus(RESPONSAVEL_ID, StatusTarefa.IN_PROGRESS))
+        when(tarefaRepository.countByResponsavelIdAndStatusAndExcluidoEmIsNull(RESPONSAVEL_ID, StatusTarefa.IN_PROGRESS))
                 .thenReturn(5L);
 
         assertThatThrownBy(() -> mudarStatusTarefaUseCase.executar(
@@ -153,9 +153,9 @@ class MudarStatusTarefaUseCaseTest {
     @Test
     void executar_devePermitirQuandoAbaixoDoLimiteDeWip() {
         when(membroProjetoService.obterMembro(PROJETO_ID, SOLICITANTE_ID)).thenReturn(membro(Papel.MEMBER));
-        when(tarefaRepository.findById(TAREFA_ID))
+        when(tarefaRepository.findByIdAndExcluidoEmIsNull(TAREFA_ID))
                 .thenReturn(Optional.of(tarefa(StatusTarefa.TODO, Prioridade.MEDIUM, RESPONSAVEL_ID)));
-        when(tarefaRepository.countByResponsavelIdAndStatus(RESPONSAVEL_ID, StatusTarefa.IN_PROGRESS))
+        when(tarefaRepository.countByResponsavelIdAndStatusAndExcluidoEmIsNull(RESPONSAVEL_ID, StatusTarefa.IN_PROGRESS))
                 .thenReturn(4L);
         when(tarefaRepository.save(any(Tarefa.class))).thenAnswer(chamada -> chamada.getArgument(0));
 

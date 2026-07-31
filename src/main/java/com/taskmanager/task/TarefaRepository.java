@@ -17,14 +17,20 @@ public interface TarefaRepository extends JpaRepository<Tarefa, Long>, JpaSpecif
     @Override
     Optional<Tarefa> findById(Long id);
 
-    // sustenta a regra de WIP: no maximo 5 tarefas IN_PROGRESS por responsavel
-    long countByResponsavelIdAndStatus(Long responsavelId, StatusTarefa status);
+    // usado pelos use cases (via TarefaHelper): tarefa soft-deletada deve se comportar como inexistente
+    @EntityGraph(attributePaths = {"responsavel", "projeto"})
+    Optional<Tarefa> findByIdAndExcluidoEmIsNull(Long id);
 
-    @Query("select t.status as status, count(t) as total from Tarefa t where t.projeto.id = :projetoId group by t.status")
+    // sustenta a regra de WIP: no maximo 5 tarefas IN_PROGRESS por responsavel; exclui tarefas
+    // soft-deletadas da contagem, senao uma tarefa "excluida" ainda ocuparia vaga de WIP
+    long countByResponsavelIdAndStatusAndExcluidoEmIsNull(Long responsavelId, StatusTarefa status);
+
+    @Query(
+            "select t.status as status, count(t) as total from Tarefa t where t.projeto.id = :projetoId and t.excluidoEm is null group by t.status")
     List<ContagemStatus> contarPorStatus(@Param("projetoId") Long projetoId);
 
     @Query(
-            "select t.prioridade as prioridade, count(t) as total from Tarefa t where t.projeto.id = :projetoId group by t.prioridade")
+            "select t.prioridade as prioridade, count(t) as total from Tarefa t where t.projeto.id = :projetoId and t.excluidoEm is null group by t.prioridade")
     List<ContagemPrioridade> contarPorPrioridade(@Param("projetoId") Long projetoId);
 
     interface ContagemStatus {

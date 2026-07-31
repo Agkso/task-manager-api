@@ -12,6 +12,13 @@ import org.springframework.format.annotation.DateTimeFormat;
  * objeto e vinculados via {@code @ModelAttribute} - evitava uma lista de 10+
  * {@code @RequestParam} soltos no metodo do controller. O construtor
  * compacto aplica os defaults que antes viviam em {@code @RequestParam(defaultValue = ...)}.
+ *
+ * {@code pagina}/{@code tamanho} sao {@link Integer}, nao {@code int}: quando o
+ * cliente nao manda o parametro (ex.: {@code ?status=DONE} sozinho, sem
+ * paginacao nenhuma), o Spring nao tem como converter "ausente" pra um
+ * primitivo (nao existe int nulo) e a requisicao inteira falha com 400 antes
+ * do construtor compacto rodar. Com o tipo boxed, o parametro ausente vira
+ * null - dai o construtor compacto aplica o default normalmente.
  */
 public record RequisicaoFiltroTarefa(
         StatusTarefa status,
@@ -22,14 +29,15 @@ public record RequisicaoFiltroTarefa(
         String busca,
         String ordenarPor,
         String direcao,
-        @Min(value = 0, message = "pagina nao pode ser negativa") int pagina,
+        @Min(value = 0, message = "pagina nao pode ser negativa") Integer pagina,
         @Min(value = 1, message = "tamanho deve ser no minimo 1")
                 @Max(value = 100, message = "tamanho deve ser no maximo 100")
-                int tamanho) {
+                Integer tamanho) {
 
     public RequisicaoFiltroTarefa {
         ordenarPor = ordenarPor == null ? "criadoEm" : ordenarPor;
         direcao = direcao == null ? "asc" : direcao;
-        tamanho = tamanho == 0 ? 20 : tamanho;
+        pagina = pagina == null ? 0 : pagina;
+        tamanho = (tamanho == null || tamanho == 0) ? 20 : tamanho;
     }
 }

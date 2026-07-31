@@ -13,6 +13,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 import lombok.AllArgsConstructor;
@@ -52,6 +53,10 @@ public class Projeto extends Auditavel {
     @Builder.Default
     @OneToMany(mappedBy = "projeto", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<MembroProjeto> membros = new HashSet<>();
+
+    /** Nulo = ativo. Setado no lugar de um DELETE fisico - ver ProjetoService.excluir. */
+    @Column(name = "excluido_em")
+    private LocalDateTime excluidoEm;
 
     @Override
     public boolean equals(Object o) {

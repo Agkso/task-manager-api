@@ -30,7 +30,7 @@ public class TarefaHelper {
      */
     public Tarefa buscarEntidade(Long projetoId, Long tarefaId) {
         Tarefa tarefa = tarefaRepository
-                .findById(tarefaId)
+                .findByIdAndExcluidoEmIsNull(tarefaId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException(MensagensErro.tarefaNaoEncontrada(tarefaId)));
         if (!tarefa.getProjeto().getId().equals(projetoId)) {
             throw new RecursoNaoEncontradoException(MensagensErro.tarefaNaoEncontrada(tarefaId));

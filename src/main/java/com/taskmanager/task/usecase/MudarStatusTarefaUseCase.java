@@ -45,7 +45,7 @@ public class MudarStatusTarefaUseCase {
 
         long tarefasEmAndamento = tarefa.getResponsavel() == null
                 ? 0
-                : tarefaRepository.countByResponsavelIdAndStatus(
+                : tarefaRepository.countByResponsavelIdAndStatusAndExcluidoEmIsNull(
                         tarefa.getResponsavel().getId(), StatusTarefa.IN_PROGRESS);
 
         StatusTarefa statusAnterior = tarefa.getStatus();
@@ -54,7 +54,7 @@ public class MudarStatusTarefaUseCase {
         tarefa.setStatus(requisicao.status());
         RespostaTarefa resposta = tarefaMapper.paraResposta(tarefaRepository.save(tarefa));
         eventPublisher.publishEvent(
-                new TarefaStatusAlteradoEvent(tarefaId, solicitanteId, statusAnterior, requisicao.status()));
+                new TarefaStatusAlteradoEvent(tarefaId, projetoId, solicitanteId, statusAnterior, requisicao.status()));
         log.info(
                 "Tarefa {} mudou de status {} para {} (solicitado por usuario {})",
                 tarefaId,

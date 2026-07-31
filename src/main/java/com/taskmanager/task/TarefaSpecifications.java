@@ -15,6 +15,10 @@ public final class TarefaSpecifications {
         return (root, query, cb) -> cb.equal(root.get("projeto").get("id"), projetoId);
     }
 
+    public static Specification<Tarefa> naoExcluida() {
+        return (root, query, cb) -> cb.isNull(root.get("excluidoEm"));
+    }
+
     /**
      * Fetch join em responsavel: sem isso, listar tarefas com responsavel
      * definido gera 1 SELECT extra por linha (N+1) na hora de montar

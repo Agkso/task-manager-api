@@ -62,6 +62,10 @@ public class Tarefa extends Auditavel {
     @JoinColumn(name = "responsavel_id")
     private Usuario responsavel;
 
+    /** Nulo = ativa. Setado no lugar de um DELETE fisico - ver ExcluirTarefaUseCase. */
+    @Column(name = "excluido_em")
+    private LocalDateTime excluidoEm;
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {

@@ -10,6 +10,11 @@ public interface MembroProjetoRepository extends JpaRepository<MembroProjeto, Lo
     @EntityGraph(attributePaths = "usuario")
     Optional<MembroProjeto> findByProjetoIdAndUsuarioId(Long projetoId, Long usuarioId);
 
+    // usado por obterMembro: projeto soft-deletado deve barrar acesso como se o
+    // solicitante nunca tivesse sido membro (mesmo efeito de "nao encontrado")
+    @EntityGraph(attributePaths = "usuario")
+    Optional<MembroProjeto> findByProjetoIdAndUsuarioIdAndProjeto_ExcluidoEmIsNull(Long projetoId, Long usuarioId);
+
     @EntityGraph(attributePaths = "usuario")
     List<MembroProjeto> findByProjetoId(Long projetoId);
 

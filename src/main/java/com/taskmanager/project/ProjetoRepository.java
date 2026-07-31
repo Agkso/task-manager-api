@@ -11,6 +11,13 @@ public interface ProjetoRepository extends JpaRepository<Projeto, Long> {
     @Override
     Optional<Projeto> findById(Long id);
 
+    // usado pelos services: projeto soft-deletado deve se comportar como inexistente (404)
+    @EntityGraph(attributePaths = "dono")
+    Optional<Projeto> findByIdAndExcluidoEmIsNull(Long id);
+
     @EntityGraph(attributePaths = "dono")
     List<Projeto> findByMembros_Usuario_Id(Long usuarioId);
+
+    @EntityGraph(attributePaths = "dono")
+    List<Projeto> findByMembros_Usuario_IdAndExcluidoEmIsNull(Long usuarioId);
 }

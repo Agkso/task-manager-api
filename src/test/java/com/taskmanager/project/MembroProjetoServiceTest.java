@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 
 @ExtendWith(MockitoExtension.class)
@@ -31,6 +32,9 @@ class MembroProjetoServiceTest {
     @Mock
     private UsuarioRepository usuarioRepository;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     private MembroProjetoService membroProjetoService;
 
     private static final Long PROJETO_ID = 1L;
@@ -39,7 +43,8 @@ class MembroProjetoServiceTest {
 
     @BeforeEach
     void montarService() {
-        membroProjetoService = new MembroProjetoService(membroProjetoRepository, projetoRepository, usuarioRepository);
+        membroProjetoService =
+                new MembroProjetoService(membroProjetoRepository, projetoRepository, usuarioRepository, eventPublisher);
     }
 
     private Usuario usuario(Long id) {
@@ -52,7 +57,7 @@ class MembroProjetoServiceTest {
 
     @Test
     void exigirAdmin_deveRejeitarQuandoSolicitanteEhApenasMember() {
-        when(membroProjetoRepository.findByProjetoIdAndUsuarioId(PROJETO_ID, SOLICITANTE_ID))
+        when(membroProjetoRepository.findByProjetoIdAndUsuarioIdAndProjeto_ExcluidoEmIsNull(PROJETO_ID, SOLICITANTE_ID))
                 .thenReturn(Optional.of(membro(Papel.MEMBER)));
 
         assertThatThrownBy(() -> membroProjetoService.exigirAdmin(PROJETO_ID, SOLICITANTE_ID))
@@ -61,7 +66,7 @@ class MembroProjetoServiceTest {
 
     @Test
     void exigirAdmin_deveRejeitarQuandoSolicitanteNaoEhMembro() {
-        when(membroProjetoRepository.findByProjetoIdAndUsuarioId(PROJETO_ID, SOLICITANTE_ID))
+        when(membroProjetoRepository.findByProjetoIdAndUsuarioIdAndProjeto_ExcluidoEmIsNull(PROJETO_ID, SOLICITANTE_ID))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> membroProjetoService.exigirAdmin(PROJETO_ID, SOLICITANTE_ID))
@@ -70,10 +75,10 @@ class MembroProjetoServiceTest {
 
     @Test
     void remover_deveRejeitarQuandoTentaRemoverODono() {
-        when(membroProjetoRepository.findByProjetoIdAndUsuarioId(PROJETO_ID, SOLICITANTE_ID))
+        when(membroProjetoRepository.findByProjetoIdAndUsuarioIdAndProjeto_ExcluidoEmIsNull(PROJETO_ID, SOLICITANTE_ID))
                 .thenReturn(Optional.of(membro(Papel.ADMIN)));
         Projeto projeto = Projeto.builder().id(PROJETO_ID).dono(usuario(DONO_ID)).build();
-        when(projetoRepository.findById(PROJETO_ID)).thenReturn(Optional.of(projeto));
+        when(projetoRepository.findByIdAndExcluidoEmIsNull(PROJETO_ID)).thenReturn(Optional.of(projeto));
 
         assertThatThrownBy(() -> membroProjetoService.remover(PROJETO_ID, DONO_ID, SOLICITANTE_ID))
                 .isInstanceOf(RegraNegocioException.class)
@@ -84,10 +89,10 @@ class MembroProjetoServiceTest {
 
     @Test
     void adicionar_deveRejeitarQuandoUsuarioJaEhMembro() {
-        when(membroProjetoRepository.findByProjetoIdAndUsuarioId(PROJETO_ID, SOLICITANTE_ID))
+        when(membroProjetoRepository.findByProjetoIdAndUsuarioIdAndProjeto_ExcluidoEmIsNull(PROJETO_ID, SOLICITANTE_ID))
                 .thenReturn(Optional.of(membro(Papel.ADMIN)));
         Projeto projeto = Projeto.builder().id(PROJETO_ID).dono(usuario(DONO_ID)).build();
-        when(projetoRepository.findById(PROJETO_ID)).thenReturn(Optional.of(projeto));
+        when(projetoRepository.findByIdAndExcluidoEmIsNull(PROJETO_ID)).thenReturn(Optional.of(projeto));
 
         Usuario novoMembro = usuario(5L);
         when(usuarioRepository.findByEmail(novoMembro.getEmail())).thenReturn(Optional.of(novoMembro));

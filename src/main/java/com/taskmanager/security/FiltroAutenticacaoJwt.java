@@ -34,13 +34,11 @@ public class FiltroAutenticacaoJwt extends OncePerRequestFilter {
             @NonNull FilterChain filterChain)
             throws ServletException, IOException {
 
-        String cabecalho = request.getHeader("Authorization");
-        if (cabecalho == null || !cabecalho.startsWith(PREFIXO_BEARER)) {
+        String token = extrairToken(request);
+        if (token == null) {
             filterChain.doFilter(request, response);
             return;
         }
-
-        String token = cabecalho.substring(PREFIXO_BEARER.length());
 
         try {
             String email = jwtService.extrairEmail(token);
@@ -62,5 +60,23 @@ public class FiltroAutenticacaoJwt extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * Authorization: Bearer e o caminho normal. O fallback via query param
+     * (?token=) existe so pro endpoint de eventos SSE (ver
+     * InscreverEventosTarefaUseCase): a API nativa EventSource do browser
+     * nao deixa mandar headers customizados, entao nao ha como anexar
+     * Authorization numa conexao SSE feita direto pelo browser sem isso.
+     * O token e' de curta duracao (60min por padrao) e HTTPS em producao
+     * cobre a exposicao na URL - o mesmo tradeoff que qualquer API que
+     * expoe SSE/websocket autenticado por token precisa fazer.
+     */
+    private String extrairToken(HttpServletRequest request) {
+        String cabecalho = request.getHeader("Authorization");
+        if (cabecalho != null && cabecalho.startsWith(PREFIXO_BEARER)) {
+            return cabecalho.substring(PREFIXO_BEARER.length());
+        }
+        return request.getParameter("token");
     }
 }

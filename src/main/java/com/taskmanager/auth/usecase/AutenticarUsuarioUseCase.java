@@ -1,5 +1,8 @@
 package com.taskmanager.auth.usecase;
 
+import com.taskmanager.audit.AcaoAuditoria;
+import com.taskmanager.audit.EventoAuditoria;
+import com.taskmanager.audit.TipoEntidadeAuditoria;
 import com.taskmanager.auth.RefreshTokenService;
 import com.taskmanager.auth.dto.RequisicaoLogin;
 import com.taskmanager.auth.dto.RespostaLogin;
@@ -9,6 +12,7 @@ import com.taskmanager.user.Usuario;
 import com.taskmanager.user.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -25,6 +29,7 @@ public class AutenticarUsuarioUseCase {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokenService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public RespostaLogin executar(RequisicaoLogin requisicao) {
@@ -42,6 +47,8 @@ public class AutenticarUsuarioUseCase {
                         MensagensErro.usuarioAutenticadoNaoEncontrado(requisicao.email())));
 
         log.info("Login bem-sucedido: usuario={}", usuario.getId());
+        eventPublisher.publishEvent(EventoAuditoria.de(
+                AcaoAuditoria.LOGIN_SUCEDIDO, TipoEntidadeAuditoria.USUARIO, usuario.getId(), null, usuario.getId()));
         return new RespostaLogin(jwtService.gerarToken(usuario), refreshTokenService.gerar(usuario));
     }
 }
