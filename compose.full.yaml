@@ -32,6 +32,6 @@ services:
       - 'DB_URL=jdbc:postgresql://postgres:5432/taskmanager'
       - 'DB_USERNAME=taskmanager'
       - 'DB_PASSWORD=taskmanager'
-      - 'JWT_SECRET=SECRET-REMOVIDO-DO-HISTORICO'
+      - 'JWT_SECRET=nao-e-um-secret-de-verdade-defina-JWT_SECRET-no-ambiente-taskmanager-dev-2026'
     ports:
       - '8080:8080'

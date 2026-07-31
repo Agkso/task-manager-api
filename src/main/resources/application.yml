@@ -32,7 +32,7 @@ management:
 
 app:
   jwt:
-    secret: ${JWT_SECRET:SECRET-REMOVIDO-DO-HISTORICO}
+    secret: ${JWT_SECRET:nao-e-um-secret-de-verdade-defina-JWT_SECRET-no-ambiente-taskmanager-dev-2026}
     expiration-minutes: ${JWT_EXPIRATION_MINUTES:60}
     refresh-expiration-days: ${JWT_REFRESH_EXPIRATION_DAYS:7}
     refresh-cleanup-retention-days: ${JWT_REFRESH_CLEANUP_RETENTION_DAYS:30}
