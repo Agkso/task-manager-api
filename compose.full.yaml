@@ -33,5 +33,12 @@ services:
       - 'DB_USERNAME=taskmanager'
       - 'DB_PASSWORD=taskmanager'
       - 'JWT_SECRET=nao-e-um-secret-de-verdade-defina-JWT_SECRET-no-ambiente-taskmanager-dev-2026'
+      # repassados do ambiente do host (nunca hardcoded aqui) - export
+      # RESEND_API_KEY no shell antes de subir o compose pra testar envio
+      # de email de verdade localmente; sem exportar, cai no default vazio
+      # do application.yml (so loga, nao quebra a app).
+      - 'RESEND_API_KEY=${RESEND_API_KEY:-}'
+      - 'EMAIL_REMETENTE=${EMAIL_REMETENTE:-onboarding@resend.dev}'
+      - 'FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}'
     ports:
       - '8080:8080'
