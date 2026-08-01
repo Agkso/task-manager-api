@@ -164,7 +164,6 @@ Origem vem de config (`app.cors.allowed-origins`, default `localhost:3000`/`loca
 
 Refresh token, cache do relatório, rate limiting no login/registro, CORS, segredos via env var, limpeza de refresh tokens, Actuator, CI, Dockerfile da API, mais testes de integração, soft delete e board em tempo real - tudo isso já estava listado aqui como pendência e foi implementado (ver seções acima). O que seguiria de fato:
 
-- **Frontend**: React com um board simples (colunas por status, drag-and-drop) consumindo essa API - é o próximo passo, ainda não iniciado. É o que vai validar de verdade o SSE de eventos e o CORS na prática.
 - **Broker externo pro SSE em múltiplas instâncias**: `TarefaEventoBroadcaster` guarda os emissores em memória, então só funciona com uma instância da API. Escalar horizontalmente exigiria Redis pub/sub (ou similar) pra um emissor conectado numa instância receber evento publicado em outra.
 - **Log de auditoria mais rico**: hoje `LogAuditoria` guarda ação/entidade/ator/quando, mas não o diff (o que mudou de fato num `PROJETO_ATUALIZADO`, por exemplo). Um `detalhe` estruturado (JSON com antes/depois) valeria a pena se a auditoria virar uma feature consultada de verdade, não só um registro de "aconteceu".
 - **Verificação de email**: registro aceita qualquer email sem confirmar posse dele. Ok pra teste técnico; produção pediria um fluxo de verificação antes de liberar login.
