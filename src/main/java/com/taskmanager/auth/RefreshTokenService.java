@@ -64,6 +64,11 @@ public class RefreshTokenService {
     }
 
     @Transactional
+    public void revogarTodosDoUsuario(Long usuarioId) {
+        refreshTokenRepository.revogarTodosDoUsuario(usuarioId);
+    }
+
+    @Transactional
     public void revogar(String tokenBruto) {
         RefreshToken refreshToken = buscarValido(tokenBruto);
         refreshToken.setRevogadoEm(LocalDateTime.now());

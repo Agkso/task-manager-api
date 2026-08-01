@@ -54,6 +54,7 @@ public final class MensagensErro {
     // Autenticacao e usuario
     public static final String EMAIL_JA_CADASTRADO = "Ja existe um usuario cadastrado com esse email";
     public static final String REFRESH_TOKEN_INVALIDO = "Refresh token invalido";
+    public static final String TOKEN_RESET_SENHA_INVALIDO = "Token de redefinicao de senha invalido, expirado ou ja utilizado";
 
     public static String usuarioAutenticadoNaoEncontrado(String email) {
         return "Usuario autenticado nao encontrado: " + email;

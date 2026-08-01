@@ -25,10 +25,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Limita tentativas de login/registro por IP (token bucket) pra dificultar
- * forca bruta de senha e criacao em massa de contas - so nessas duas rotas,
- * o resto da API ja exige um JWT valido, que e uma barreira bem mais cara
- * de forcar do que uma senha.
+ * Limita tentativas de login/registro/esqueci-senha por IP (token bucket)
+ * pra dificultar forca bruta de senha, criacao em massa de contas e spam de
+ * email de reset (cada envio custa uma chamada real ao provedor de email) -
+ * so nessas rotas, o resto da API ja exige um JWT valido, que e uma
+ * barreira bem mais cara de forcar do que uma senha.
  *
  * Um bucket por IP, guardado num cache Caffeine com expiracao por
  * inatividade: sem isso, cada IP novo que aparecesse ficaria pra sempre em
@@ -52,7 +53,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @RequiredArgsConstructor
 public class FiltroLimitacaoRequisicoes extends OncePerRequestFilter {
 
-    private static final Set<String> ROTAS_LIMITADAS = Set.of("/api/auth/login", "/api/auth/registrar");
+    private static final Set<String> ROTAS_LIMITADAS =
+            Set.of("/api/auth/login", "/api/auth/registrar", "/api/auth/esqueci-senha");
 
     private final ObjectMapper objectMapper;
 
