@@ -2,11 +2,13 @@ package com.taskmanager.task.tarefa;
 
 import com.taskmanager.task.enums.Prioridade;
 import com.taskmanager.task.enums.StatusTarefa;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -32,6 +34,10 @@ public interface TarefaRepository extends JpaRepository<Tarefa, Long>, JpaSpecif
     @Query(
             "select t.prioridade as prioridade, count(t) as total from Tarefa t where t.projeto.id = :projetoId and t.excluidoEm is null group by t.prioridade")
     List<ContagemPrioridade> contarPorPrioridade(@Param("projetoId") Long projetoId);
+
+    @Modifying
+    @Query("update Tarefa t set t.excluidoEm = :agora where t.projeto.id = :projetoId and t.excluidoEm is null")
+    int softDeleteByProjetoId(@Param("projetoId") Long projetoId, @Param("agora") LocalDateTime agora);
 
     interface ContagemStatus {
         StatusTarefa getStatus();
