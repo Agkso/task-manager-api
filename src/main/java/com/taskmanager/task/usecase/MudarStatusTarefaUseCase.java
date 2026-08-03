@@ -1,14 +1,14 @@
 package com.taskmanager.task.usecase;
 
 import com.taskmanager.config.ConfiguracaoCache;
-import com.taskmanager.project.MembroProjeto;
-import com.taskmanager.project.MembroProjetoService;
-import com.taskmanager.task.RegrasTransicaoStatusTarefa;
-import com.taskmanager.task.Tarefa;
-import com.taskmanager.task.TarefaHelper;
-import com.taskmanager.task.TarefaMapper;
-import com.taskmanager.task.TarefaRepository;
-import com.taskmanager.task.TarefaStatusAlteradoEvent;
+import com.taskmanager.project.membro.MembroProjeto;
+import com.taskmanager.project.membro.MembroProjetoService;
+import com.taskmanager.task.tarefa.RegrasTransicaoStatusTarefa;
+import com.taskmanager.task.tarefa.Tarefa;
+import com.taskmanager.task.tarefa.TarefaHelper;
+import com.taskmanager.task.tarefa.TarefaMapper;
+import com.taskmanager.task.tarefa.TarefaRepository;
+import com.taskmanager.task.evento.TarefaStatusAlteradoEvent;
 import com.taskmanager.task.dto.RequisicaoAtualizarStatus;
 import com.taskmanager.task.dto.RespostaTarefa;
 import com.taskmanager.task.enums.StatusTarefa;

@@ -53,43 +53,57 @@ O restante dos endpoints (membros, tarefas, filtros, relatorio) esta documentado
 
 ## Arquitetura
 
-Pacotes organizados por feature (nao por camada) - cada modulo carrega sua entidade, repositorio, service, controller e DTOs:
+Pacotes organizados por feature (nao por camada) com subpacotes internos por subdominio — **Package by Feature** com granularidade de Modular Monolith:
 
 ```
 com.taskmanager
-├── user        Usuario (entidade central, sem papel embutido)
-├── auth        AutenticacaoController + auth/usecase (RegistrarUsuarioUseCase,
-│               AutenticarUsuarioUseCase, RenovarTokenUseCase, LogoutUseCase),
-│               RefreshTokenService (rotacao em uso unico)
-├── security    JWT (filtro, service, UserDetails), config do Spring Security, limitacao de
-│               tentativas de login/registro por IP
-├── project     Projeto, MembroProjeto (o papel ADMIN/MEMBER mora aqui, nao em Usuario)
-│               ProjetoService (CRUD) e MembroProjetoService (membership/autorizacao) separados,
-│               ProjetoMapper/MembroMapper (entidade -> DTO)
-├── task        Tarefa, task/usecase (uma classe por operacao: CriarTarefaUseCase,
-│               AtualizarTarefaUseCase, ExcluirTarefaUseCase, MudarStatusTarefaUseCase,
-│               ListarTarefasUseCase, BuscarTarefaUseCase, GerarRelatorioTarefaUseCase,
-│               BuscarHistoricoTarefaUseCase, InscreverEventosTarefaUseCase),
-│               RegrasTransicaoStatusTarefa (regra pura, sem dependencia de repositorio),
-│               TarefaHelper (busca de tarefa + resolucao de responsavel compartilhada entre
-│               use cases), TarefaMapper/HistoricoTarefaMapper (entidade -> DTO),
-│               TarefaSpecifications (filtros, busca, ordenacao, exclui soft-deletadas),
-│               RelatorioTarefaService (agregacao cacheada), HistoricoTarefa/
-│               HistoricoTarefaListener (historico de status via evento),
-│               TarefaEventoBroadcaster/TarefaEventoSseListener (board em tempo real via SSE)
-├── audit       LogAuditoria + AuditoriaListener (ciclo de vida de projeto/membro/tarefa/auth,
-│               via o mesmo padrao evento+listener do historico de tarefa)
-├── common      Auditavel (criadoEm/atualizadoEm via JPA auditing) e PaginaResposta<T>
-├── exception   excecoes de dominio + MensagensErro (textos de erro centralizados) +
-│               ManipuladorGlobalExcecoes (RFC 7807)
-└── config      OpenAPI/Swagger, cache (Caffeine)
+├── user/           Usuario (entidade central, sem papel embutido)
+├── auth/
+│   ├── token/      RefreshToken, RefreshTokenRepository, RefreshTokenService,
+│   │               LimpezaRefreshTokenJob (rotacao de refresh token em uso unico)
+│   ├── passwordreset/  PasswordResetToken, PasswordResetTokenRepository,
+│   │               PasswordResetTokenService, LimpezaPasswordResetTokenJob
+│   ├── usecase/    RegistrarUsuarioUseCase, AutenticarUsuarioUseCase, RenovarTokenUseCase,
+│   │               LogoutUseCase, SolicitarRedefinicaoSenhaUseCase, RedefinirSenhaUseCase
+│   ├── dto/        RequisicaoLogin, RequisicaoRegistro, RespostaLogin, ...
+│   └── AutenticacaoController
+├── security/       JWT (filtro, service, UserDetails), config do Spring Security, limitacao de
+│                   tentativas de login/registro por IP
+├── project/
+│   ├── projeto/    Projeto, ProjetoController, ProjetoMapper, ProjetoRepository, ProjetoService
+│   ├── membro/     MembroProjeto (o papel ADMIN/MEMBER mora aqui, nao em Usuario),
+│   │               MembroMapper, MembroProjetoRepository, MembroProjetoService
+│   ├── dto/        RequisicaoProjeto, RequisicaoAdicionarMembro, RespostaProjeto, RespostaMembro
+│   └── enums/      Papel (ADMIN, MEMBER)
+├── task/
+│   ├── tarefa/     Tarefa, TarefaController, TarefaMapper, TarefaRepository, TarefaHelper,
+│   │               TarefaSpecifications, RegrasTransicaoStatusTarefa
+│   ├── historico/  HistoricoTarefa, HistoricoTarefaListener, HistoricoTarefaMapper,
+│   │               HistoricoTarefaRepository
+│   ├── evento/     TarefaStatusAlteradoEvent, TarefaEventoBroadcaster,
+│   │               TarefaEventoSseListener (board em tempo real via SSE)
+│   ├── relatorio/  RelatorioTarefaService (agregacao cacheada)
+│   ├── usecase/    CriarTarefaUseCase, AtualizarTarefaUseCase, ExcluirTarefaUseCase,
+│   │               MudarStatusTarefaUseCase, ListarTarefasUseCase, BuscarTarefaUseCase,
+│   │               GerarRelatorioTarefaUseCase, BuscarHistoricoTarefaUseCase,
+│   │               InscreverEventosTarefaUseCase
+│   ├── dto/        RequisicaoTarefa, RequisicaoFiltroTarefa, RespostaTarefa, ...
+│   └── enums/      StatusTarefa (TODO, IN_PROGRESS, DONE), Prioridade (LOW/MEDIUM/HIGH/CRITICAL)
+├── audit/          LogAuditoria + AuditoriaListener (ciclo de vida de projeto/membro/tarefa/auth,
+│                   via o mesmo padrao evento+listener do historico de tarefa)
+├── common/         Auditavel (criadoEm/atualizadoEm via JPA auditing) e PaginaResposta<T>
+├── exception/      excecoes de dominio + MensagensErro (textos de erro centralizados) +
+│                   ManipuladorGlobalExcecoes (RFC 7807)
+└── config/         OpenAPI/Swagger, cache (Caffeine)
 ```
 
-Escolhi package-by-feature em vez de package-by-layer (controller/service/repository cada um num pacote so) porque, assim que `task` cresceu, ficava dificil saber rapido o que pertencia a `project` vs `task` olhando pastas separadas por tipo. Com feature module, abrir `task/` mostra tudo que existe sobre tarefa.
+**Regra de dependencia entre features**: `task` depende de `project` (via `MembroProjetoService`), nunca o contrario. `audit`, `security` e `exception` sao transversais (usados por todos). Imports cruzados diretos entre subpacotes de features diferentes sao aceitos — o limite e nao inverter a direcao da dependencia.
+
+Escolhi package-by-feature em vez de package-by-layer (controller/service/repository cada um num pacote so) porque, assim que `task` cresceu, ficava dificil saber rapido o que pertencia a `project` vs `task` olhando pastas separadas por tipo. Com feature module, abrir `task/` mostra tudo que existe sobre tarefa. Os subpacotes internos (`tarefa/`, `historico/`, `evento/`, `relatorio/`) seguem o mesmo principio: cada subdominio agrupa suas proprias classes em vez de misturar entidade + listener + broadcaster + regras num pacote so.
 
 `security` e `exception` ficam fora dos modulos porque sao transversais (usados por todos).
 
-Dentro de `project` e `task` tambem apliquei SRP em mais de um passo. Primeiro, `ProjetoService` originalmente misturava CRUD de projeto com "quem pode fazer o que" (membership/autorizacao) - virou `MembroProjetoService` separado, usado tambem pelos use cases de tarefa pra checar acesso. Depois, `TarefaService`/`AutenticacaoService` (que ainda concentravam varias operacoes - criar, atualizar, excluir, mudar status, listar, relatorio, historico - num service so, com injecao de dependencia escrita na mao) foram quebrados numa classe por operacao em `task.usecase`/`auth.usecase`, injetadas direto no controller: fica explicito o que cada endpoint realmente precisa, sem um service "guarda-chuva" no meio do caminho. As 3 regras de transicao de status ja tinham saido do `TarefaService` para `RegrasTransicaoStatusTarefa` - classe pura, sem repositorio, testavel sem mock (ver `RegrasTransicaoStatusTarefaTest`); os filtros/busca/ordenacao da listagem, para `TarefaSpecifications`.
+Dentro de `project` e `task` tambem apliquei SRP em mais de um passo. Primeiro, `ProjetoService` originalmente misturava CRUD de projeto com "quem pode fazer o que" (membership/autorizacao) - virou `MembroProjetoService` separado (hoje em `project/membro/`), usado tambem pelos use cases de tarefa pra checar acesso. Depois, `TarefaService`/`AutenticacaoService` (que ainda concentravam varias operacoes - criar, atualizar, excluir, mudar status, listar, relatorio, historico - num service so, com injecao de dependencia escrita na mao) foram quebrados numa classe por operacao em `task/usecase/`/`auth/usecase/`, injetadas direto no controller: fica explicito o que cada endpoint realmente precisa, sem um service "guarda-chuva" no meio do caminho. As 3 regras de transicao de status ja tinham saido do `TarefaService` para `RegrasTransicaoStatusTarefa` (hoje em `task/tarefa/`) - classe pura, sem repositorio, testavel sem mock (ver `RegrasTransicaoStatusTarefaTest`); os filtros/busca/ordenacao da listagem, para `TarefaSpecifications`.
 
 A conversao entidade -> DTO, que vivia como metodo estatico `de()` dentro de cada record de resposta, virou um `@Component` dedicado (`TarefaMapper`, `HistoricoTarefaMapper`, `ProjetoMapper`, `MembroMapper`) injetado no use case/controller - deixa o DTO como dado puro e a conversao testavel/substituivel via DI, no mesmo espirito da extracao dos use cases.
 

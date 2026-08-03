@@ -4,8 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
-import com.taskmanager.auth.RefreshToken;
-import com.taskmanager.auth.RefreshTokenService;
+import com.taskmanager.auth.token.RefreshToken;
+import com.taskmanager.auth.token.RefreshTokenService;
 import com.taskmanager.auth.dto.RequisicaoRefreshToken;
 import com.taskmanager.security.JwtService;
 import com.taskmanager.user.Usuario;

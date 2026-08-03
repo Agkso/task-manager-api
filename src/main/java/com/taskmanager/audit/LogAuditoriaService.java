@@ -2,7 +2,7 @@ package com.taskmanager.audit;
 
 import com.taskmanager.audit.dto.RespostaLogAuditoria;
 import com.taskmanager.common.dto.PaginaResposta;
-import com.taskmanager.project.MembroProjetoService;
+import com.taskmanager.project.membro.MembroProjetoService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;

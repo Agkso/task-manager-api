@@ -1,6 +1,6 @@
 package com.taskmanager.auth.usecase;
 
-import com.taskmanager.auth.RefreshTokenService;
+import com.taskmanager.auth.token.RefreshTokenService;
 import com.taskmanager.auth.dto.RequisicaoRefreshToken;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

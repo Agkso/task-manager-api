@@ -3,7 +3,7 @@ package com.taskmanager.auth.usecase;
 import com.taskmanager.audit.AcaoAuditoria;
 import com.taskmanager.audit.EventoAuditoria;
 import com.taskmanager.audit.TipoEntidadeAuditoria;
-import com.taskmanager.auth.RefreshTokenService;
+import com.taskmanager.auth.token.RefreshTokenService;
 import com.taskmanager.auth.dto.RequisicaoLogin;
 import com.taskmanager.auth.dto.RespostaLogin;
 import com.taskmanager.exception.MensagensErro;

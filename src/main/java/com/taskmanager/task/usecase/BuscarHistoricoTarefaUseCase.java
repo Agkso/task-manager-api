@@ -1,9 +1,9 @@
 package com.taskmanager.task.usecase;
 
-import com.taskmanager.project.MembroProjetoService;
-import com.taskmanager.task.HistoricoTarefaMapper;
-import com.taskmanager.task.HistoricoTarefaRepository;
-import com.taskmanager.task.TarefaHelper;
+import com.taskmanager.project.membro.MembroProjetoService;
+import com.taskmanager.task.historico.HistoricoTarefaMapper;
+import com.taskmanager.task.historico.HistoricoTarefaRepository;
+import com.taskmanager.task.tarefa.TarefaHelper;
 import com.taskmanager.task.dto.RespostaHistoricoTarefa;
 import java.util.List;
 import lombok.RequiredArgsConstructor;

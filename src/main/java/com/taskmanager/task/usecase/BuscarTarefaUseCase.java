@@ -1,8 +1,8 @@
 package com.taskmanager.task.usecase;
 
-import com.taskmanager.project.MembroProjetoService;
-import com.taskmanager.task.TarefaHelper;
-import com.taskmanager.task.TarefaMapper;
+import com.taskmanager.project.membro.MembroProjetoService;
+import com.taskmanager.task.tarefa.TarefaHelper;
+import com.taskmanager.task.tarefa.TarefaMapper;
 import com.taskmanager.task.dto.RespostaTarefa;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

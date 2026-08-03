@@ -1,7 +1,7 @@
 package com.taskmanager.task.usecase;
 
-import com.taskmanager.project.MembroProjetoService;
-import com.taskmanager.task.TarefaEventoBroadcaster;
+import com.taskmanager.project.membro.MembroProjetoService;
+import com.taskmanager.task.evento.TarefaEventoBroadcaster;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;

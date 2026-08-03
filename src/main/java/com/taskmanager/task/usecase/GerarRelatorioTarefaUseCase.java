@@ -1,7 +1,7 @@
 package com.taskmanager.task.usecase;
 
-import com.taskmanager.project.MembroProjetoService;
-import com.taskmanager.task.RelatorioTarefaService;
+import com.taskmanager.project.membro.MembroProjetoService;
+import com.taskmanager.task.relatorio.RelatorioTarefaService;
 import com.taskmanager.task.dto.RespostaRelatorio;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

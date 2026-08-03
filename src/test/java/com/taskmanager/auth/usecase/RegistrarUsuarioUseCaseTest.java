@@ -7,7 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.taskmanager.auth.RefreshTokenService;
+import com.taskmanager.auth.token.RefreshTokenService;
 import com.taskmanager.auth.dto.RequisicaoRegistro;
 import com.taskmanager.exception.RegraNegocioException;
 import com.taskmanager.security.JwtService;

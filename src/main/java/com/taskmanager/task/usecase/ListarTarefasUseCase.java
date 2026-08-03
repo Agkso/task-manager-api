@@ -1,11 +1,11 @@
 package com.taskmanager.task.usecase;
 
 import com.taskmanager.common.dto.PaginaResposta;
-import com.taskmanager.project.MembroProjetoService;
-import com.taskmanager.task.Tarefa;
-import com.taskmanager.task.TarefaMapper;
-import com.taskmanager.task.TarefaRepository;
-import com.taskmanager.task.TarefaSpecifications;
+import com.taskmanager.project.membro.MembroProjetoService;
+import com.taskmanager.task.tarefa.Tarefa;
+import com.taskmanager.task.tarefa.TarefaMapper;
+import com.taskmanager.task.tarefa.TarefaRepository;
+import com.taskmanager.task.tarefa.TarefaSpecifications;
 import com.taskmanager.task.dto.RequisicaoFiltroTarefa;
 import com.taskmanager.task.dto.RespostaTarefa;
 import java.util.List;

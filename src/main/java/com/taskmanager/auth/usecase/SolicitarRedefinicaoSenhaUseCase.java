@@ -3,7 +3,7 @@ package com.taskmanager.auth.usecase;
 import com.taskmanager.audit.AcaoAuditoria;
 import com.taskmanager.audit.EventoAuditoria;
 import com.taskmanager.audit.TipoEntidadeAuditoria;
-import com.taskmanager.auth.PasswordResetTokenService;
+import com.taskmanager.auth.passwordreset.PasswordResetTokenService;
 import com.taskmanager.auth.dto.RequisicaoEsqueciSenha;
 import com.taskmanager.email.EmailService;
 import com.taskmanager.user.Usuario;

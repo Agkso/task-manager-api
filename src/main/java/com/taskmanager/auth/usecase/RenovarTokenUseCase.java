@@ -1,6 +1,6 @@
 package com.taskmanager.auth.usecase;
 
-import com.taskmanager.auth.RefreshTokenService;
+import com.taskmanager.auth.token.RefreshTokenService;
 import com.taskmanager.auth.dto.RequisicaoRefreshToken;
 import com.taskmanager.auth.dto.RespostaLogin;
 import com.taskmanager.security.JwtService;
